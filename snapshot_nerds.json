@@ -1,0 +1,619 @@
+{
+  "dialog_id": "-1002564889965",
+  "minutes": 260,
+  "count": 61,
+  "updated_at": "2026-04-03T06:22:55.319101+00:00",
+  "is_catchup": false,
+  "messages": [
+    {
+      "msg_id": 159686,
+      "dialog_id": "-1002564889965",
+      "dialog_name": "☝️🤓 τhe nerds 🧠🥼",
+      "dialog_type": "group",
+      "sender": "Mark",
+      "text": "https://www.sec.gov/Archives/edgar/data/2029297/000119312526140409/gtao_s-1_amendment_1.htm",
+      "date": "2026-04-03T04:04:37+00:00",
+      "reply_to_id": null
+    },
+    {
+      "msg_id": 159687,
+      "dialog_id": "-1002564889965",
+      "dialog_name": "☝️🤓 τhe nerds 🧠🥼",
+      "dialog_type": "group",
+      "sender": "Mark",
+      "text": "GM Nerds 😊",
+      "date": "2026-04-03T04:04:37+00:00",
+      "reply_to_id": null
+    },
+    {
+      "msg_id": 159688,
+      "dialog_id": "-1002564889965",
+      "dialog_name": "☝️🤓 τhe nerds 🧠🥼",
+      "dialog_type": "group",
+      "sender": "τaoSτacker ☯️",
+      "text": "Gm",
+      "date": "2026-04-03T04:07:28+00:00",
+      "reply_to_id": null
+    },
+    {
+      "msg_id": 159689,
+      "dialog_id": "-1002564889965",
+      "dialog_name": "☝️🤓 τhe nerds 🧠🥼",
+      "dialog_type": "group",
+      "sender": "vaN ττ",
+      "text": "This is big.\n\n**Grayscale Bittensor Trust ETF (GTAO)** — filed with the SEC on **April 2, 2026** (yesterday).\n\nKey facts from the filing:\n\n• **S-1/A (Amendment No. 1)** — this is an amended registration statement, meaning they filed the original S-1 earlier and this is an update\n• **Issuer:** Grayscale Bittensor Trust (TAO), a Delaware statutory trust\n• **Ticker:** GTAO\n• **Currently:** Quoted on OTCQX (over-the-counter)\n• **Target:** Listing on **NYSE Arca** — this is the upgrade from OTC to a proper exchange-listed ETF\n• **Structure:** Holds actual TAO tokens, issues shares in baskets of 10,000\n• **Custodians:** Coinbase Custody + BitGo Trust Company\n• **Prime Broker:** Coinbase Inc.\n• **Administrator:** Bank of New York Mellon\n• **Legal:** Davis Polk & Wardwell (top-tier securities firm)\n• **Staking:** Currently NOT staking the TAO held in trust. Explicitly states no staking is happening and may never be permitted.\n• **Index:** CoinDesk Bittensor Benchmark Rate for NAV pricing\n\n**What this means:**\nGrayscale is converting their existing OTC Bittensor trust into a full NYSE-listed ETF. This is the same path they took with Bitcoin (GBTC) and Ethereum (ETHE). Once effective, institutional investors, retirement accounts, and traditional brokerages can buy TAO exposure through a regulated ETF.\n\nThis is the institutional on-ramp for Bittensor. 🦞",
+      "date": "2026-04-03T04:08:11+00:00",
+      "reply_to_id": null
+    },
+    {
+      "msg_id": 159690,
+      "dialog_id": "-1002564889965",
+      "dialog_name": "☝️🤓 τhe nerds 🧠🥼",
+      "dialog_type": "group",
+      "sender": "Kissa",
+      "text": "Well good morning",
+      "date": "2026-04-03T04:09:44+00:00",
+      "reply_to_id": 159689
+    },
+    {
+      "msg_id": 159693,
+      "dialog_id": "-1002564889965",
+      "dialog_name": "☝️🤓 τhe nerds 🧠🥼",
+      "dialog_type": "group",
+      "sender": "Yang",
+      "text": "Opus is indeed a huge step up from prior models. Mega credit drainer though 🫠",
+      "date": "2026-04-03T04:13:37+00:00",
+      "reply_to_id": 159674
+    },
+    {
+      "msg_id": 159694,
+      "dialog_id": "-1002564889965",
+      "dialog_name": "☝️🤓 τhe nerds 🧠🥼",
+      "dialog_type": "group",
+      "sender": "Kissa",
+      "text": "I’ve had a blast on it- work has become very creative and more about coming up with different angles how to use it",
+      "date": "2026-04-03T04:15:57+00:00",
+      "reply_to_id": 159674
+    },
+    {
+      "msg_id": 159695,
+      "dialog_id": "-1002564889965",
+      "dialog_name": "☝️🤓 τhe nerds 🧠🥼",
+      "dialog_type": "group",
+      "sender": "Mark",
+      "text": "https://x.com/bitcoinnewscom/status/2039834243598025082?s=52&t=Hpog9dhC__8oM_btkT-6Ow\n\nBullish on Bittensor 🔥",
+      "date": "2026-04-03T04:16:30+00:00",
+      "reply_to_id": null
+    },
+    {
+      "msg_id": 159696,
+      "dialog_id": "-1002564889965",
+      "dialog_name": "☝️🤓 τhe nerds 🧠🥼",
+      "dialog_type": "group",
+      "sender": "Kissa",
+      "text": "had a blast lately telling opus to spawn other opus agents with necessary context regarding what I’m working on, have them come up with their own innovations and tweaks, then think about the pro’s and cons and lastly debate each others approach",
+      "date": "2026-04-03T04:17:53+00:00",
+      "reply_to_id": 159694
+    },
+    {
+      "msg_id": 159697,
+      "dialog_id": "-1002564889965",
+      "dialog_name": "☝️🤓 τhe nerds 🧠🥼",
+      "dialog_type": "group",
+      "sender": "Kissa",
+      "text": "It’s a bit funky but very fun and sometimes quite rewarding too",
+      "date": "2026-04-03T04:18:11+00:00",
+      "reply_to_id": null
+    },
+    {
+      "msg_id": 159698,
+      "dialog_id": "-1002564889965",
+      "dialog_name": "☝️🤓 τhe nerds 🧠🥼",
+      "dialog_type": "group",
+      "sender": "Matt",
+      "text": "Do they get staking yield?",
+      "date": "2026-04-03T04:18:53+00:00",
+      "reply_to_id": 159689
+    },
+    {
+      "msg_id": 159699,
+      "dialog_id": "-1002564889965",
+      "dialog_name": "☝️🤓 τhe nerds 🧠🥼",
+      "dialog_type": "group",
+      "sender": "Tao Outsider",
+      "text": "126 and 70 pumping more than 100% in 1 hour",
+      "date": "2026-04-03T04:19:12+00:00",
+      "reply_to_id": null
+    },
+    {
+      "msg_id": 159700,
+      "dialog_id": "-1002564889965",
+      "dialog_name": "☝️🤓 τhe nerds 🧠🥼",
+      "dialog_type": "group",
+      "sender": "Tao Outsider",
+      "text": "what a luck... I was in both",
+      "date": "2026-04-03T04:19:22+00:00",
+      "reply_to_id": null
+    },
+    {
+      "msg_id": 159701,
+      "dialog_id": "-1002564889965",
+      "dialog_name": "☝️🤓 τhe nerds 🧠🥼",
+      "dialog_type": "group",
+      "sender": "vaN ττ",
+      "text": "did you read the message you quoting?",
+      "date": "2026-04-03T04:19:29+00:00",
+      "reply_to_id": 159698
+    },
+    {
+      "msg_id": 159702,
+      "dialog_id": "-1002564889965",
+      "dialog_name": "☝️🤓 τhe nerds 🧠🥼",
+      "dialog_type": "group",
+      "sender": "Tao Outsider",
+      "text": "Thank's again @ilikepow",
+      "date": "2026-04-03T04:19:43+00:00",
+      "reply_to_id": null
+    },
+    {
+      "msg_id": 159703,
+      "dialog_id": "-1002564889965",
+      "dialog_name": "☝️🤓 τhe nerds 🧠🥼",
+      "dialog_type": "group",
+      "sender": "Mark",
+      "text": "Nope",
+      "date": "2026-04-03T04:21:28+00:00",
+      "reply_to_id": 159698
+    },
+    {
+      "msg_id": 159704,
+      "dialog_id": "-1002564889965",
+      "dialog_name": "☝️🤓 τhe nerds 🧠🥼",
+      "dialog_type": "group",
+      "sender": "Yang",
+      "text": "They shouldn't either",
+      "date": "2026-04-03T04:21:50+00:00",
+      "reply_to_id": null
+    },
+    {
+      "msg_id": 159705,
+      "dialog_id": "-1002564889965",
+      "dialog_name": "☝️🤓 τhe nerds 🧠🥼",
+      "dialog_type": "group",
+      "sender": "τaoSτacker ☯️",
+      "text": "What a luck!",
+      "date": "2026-04-03T04:25:02+00:00",
+      "reply_to_id": 159700
+    },
+    {
+      "msg_id": 159706,
+      "dialog_id": "-1002564889965",
+      "dialog_name": "☝️🤓 τhe nerds 🧠🥼",
+      "dialog_type": "group",
+      "sender": "vaN ττ",
+      "text": "that buyer on 70 likely lost a ton of TAO to slippage",
+      "date": "2026-04-03T04:25:40+00:00",
+      "reply_to_id": 159699
+    },
+    {
+      "msg_id": 159707,
+      "dialog_id": "-1002564889965",
+      "dialog_name": "☝️🤓 τhe nerds 🧠🥼",
+      "dialog_type": "group",
+      "sender": "τaoSτacker ☯️",
+      "text": "Love when they do that",
+      "date": "2026-04-03T04:26:01+00:00",
+      "reply_to_id": null
+    },
+    {
+      "msg_id": 159708,
+      "dialog_id": "-1002564889965",
+      "dialog_name": "☝️🤓 τhe nerds 🧠🥼",
+      "dialog_type": "group",
+      "sender": "τaoSτacker ☯️",
+      "text": "But more interesting.....",
+      "date": "2026-04-03T04:26:34+00:00",
+      "reply_to_id": null
+    },
+    {
+      "msg_id": 159709,
+      "dialog_id": "-1002564889965",
+      "dialog_name": "☝️🤓 τhe nerds 🧠🥼",
+      "dialog_type": "group",
+      "sender": "τaoSτacker ☯️",
+      "text": "**🟥🖥️ SN36: Web Agents - Autoppia sell**\nAcc: [🌌5D7N..NX2n](https://taostats.io/account/5D7NDUD7Pd3472AF1WVgSNeF3np31YyrpxPw6zdNxDmpNX2n) | Vali: [💩tao.bot](https://taostats.io/validators/5E2LP6EnZ54m3wS8s1yPvD5c3xo71kQroBw7aUVK32TKeZ5u)\nPrice: **0.00264𝞃** ($0.80)\n**100.78Kα** ⇄ **266.37𝞃** ($80.71K)\nImpact: **-9.15%** | [TX](https://taostats.io/extrinsic/7884896-0012) | [Chart](https://www.tao.app/subnet/36)\nPrice: **0.00252𝞃** | 1h: **-22.57%** | 24h: **-24.80%** | 1w: **-22.74%**\nPool: **5331.42𝞃** vs **2.13Mα** | Circ: **21.69%**\nMCap: **11.48K𝞃** ($3.48M) __(#98)__  | FDV: **$16.04M**",
+      "date": "2026-04-03T04:26:34+00:00",
+      "reply_to_id": null
+    },
+    {
+      "msg_id": 159710,
+      "dialog_id": "-1002564889965",
+      "dialog_name": "☝️🤓 τhe nerds 🧠🥼",
+      "dialog_type": "group",
+      "sender": "τaoSτacker ☯️",
+      "text": "[**Web Agents - Autoppia**](https://autoppia.com/) | [GitHub](https://github.com/autoppia/autoppia_web_agents_subnet)\n\nEmission: **0𝞃** __(#93)__ | Root: **17.28%** | ADR: **120.89%**\nPool: **5510.43𝞃** vs **2.06Mα** | Circ: **21.69%** | FDV: **$17.07M**\nMCap: **12.25K𝞃** ($3.70M) __(#95)__\nPrice: **0.00269𝞃** | 1h: **-18.66%** | 24h: **-19.75%** | 1w: **-17.56%**",
+      "date": "2026-04-03T04:26:43+00:00",
+      "reply_to_id": null
+    },
+    {
+      "msg_id": 159711,
+      "dialog_id": "-1002564889965",
+      "dialog_name": "☝️🤓 τhe nerds 🧠🥼",
+      "dialog_type": "group",
+      "sender": "vaN ττ",
+      "text": "oooof",
+      "date": "2026-04-03T04:26:44+00:00",
+      "reply_to_id": 159709
+    },
+    {
+      "msg_id": 159712,
+      "dialog_id": "-1002564889965",
+      "dialog_name": "☝️🤓 τhe nerds 🧠🥼",
+      "dialog_type": "group",
+      "sender": "vaN ττ",
+      "text": "Djinn",
+      "date": "2026-04-03T04:27:28+00:00",
+      "reply_to_id": null
+    },
+    {
+      "msg_id": 159713,
+      "dialog_id": "-1002564889965",
+      "dialog_name": "☝️🤓 τhe nerds 🧠🥼",
+      "dialog_type": "group",
+      "sender": "Mark",
+      "text": "YES. MaaS (Mining As A Service)",
+      "date": "2026-04-03T04:28:01+00:00",
+      "reply_to_id": 159599
+    },
+    {
+      "msg_id": 159714,
+      "dialog_id": "-1002564889965",
+      "dialog_name": "☝️🤓 τhe nerds 🧠🥼",
+      "dialog_type": "group",
+      "sender": "Mark",
+      "text": "Some kind of Harness and Miner Portal that instantly clears away most of the complexity of mining. Doesn't solve EVERYTHING, but dissolves 80%-90% of the complexity.",
+      "date": "2026-04-03T04:29:28+00:00",
+      "reply_to_id": null
+    },
+    {
+      "msg_id": 159715,
+      "dialog_id": "-1002564889965",
+      "dialog_name": "☝️🤓 τhe nerds 🧠🥼",
+      "dialog_type": "group",
+      "sender": "Mark",
+      "text": "Something like this for the front page: https://subnet-mining.crunchdao.com/",
+      "date": "2026-04-03T04:30:03+00:00",
+      "reply_to_id": null
+    },
+    {
+      "msg_id": 159716,
+      "dialog_id": "-1002564889965",
+      "dialog_name": "☝️🤓 τhe nerds 🧠🥼",
+      "dialog_type": "group",
+      "sender": "Mark",
+      "text": "Want to mine? See what the rewards look like. Drill down to see what suits your skills and available iron. Then click Miner Wizard or whatever to get mostly going.",
+      "date": "2026-04-03T04:30:48+00:00",
+      "reply_to_id": null
+    },
+    {
+      "msg_id": 159717,
+      "dialog_id": "-1002564889965",
+      "dialog_name": "☝️🤓 τhe nerds 🧠🥼",
+      "dialog_type": "group",
+      "sender": "Tao Outsider",
+      "text": "If I lost a ton selling... he lost a couple dozens",
+      "date": "2026-04-03T04:33:24+00:00",
+      "reply_to_id": 159706
+    },
+    {
+      "msg_id": 159718,
+      "dialog_id": "-1002564889965",
+      "dialog_name": "☝️🤓 τhe nerds 🧠🥼",
+      "dialog_type": "group",
+      "sender": "vaN ττ",
+      "text": "Im actually tempted to buy some...",
+      "date": "2026-04-03T04:34:57+00:00",
+      "reply_to_id": 159710
+    },
+    {
+      "msg_id": 159719,
+      "dialog_id": "-1002564889965",
+      "dialog_name": "☝️🤓 τhe nerds 🧠🥼",
+      "dialog_type": "group",
+      "sender": "Tao Outsider",
+      "text": "ugly af",
+      "date": "2026-04-03T04:35:05+00:00",
+      "reply_to_id": 159710
+    },
+    {
+      "msg_id": 159720,
+      "dialog_id": "-1002564889965",
+      "dialog_name": "☝️🤓 τhe nerds 🧠🥼",
+      "dialog_type": "group",
+      "sender": "Tao Outsider",
+      "text": "me too... hahaha",
+      "date": "2026-04-03T04:35:13+00:00",
+      "reply_to_id": 159718
+    },
+    {
+      "msg_id": 159721,
+      "dialog_id": "-1002564889965",
+      "dialog_name": "☝️🤓 τhe nerds 🧠🥼",
+      "dialog_type": "group",
+      "sender": "Tao Outsider",
+      "text": "If it has a better APY... I was jumping into",
+      "date": "2026-04-03T04:35:27+00:00",
+      "reply_to_id": null
+    },
+    {
+      "msg_id": 159722,
+      "dialog_id": "-1002564889965",
+      "dialog_name": "☝️🤓 τhe nerds 🧠🥼",
+      "dialog_type": "group",
+      "sender": "Tao Outsider",
+      "text": "Loosh is in a better shape to jump into",
+      "date": "2026-04-03T04:45:30+00:00",
+      "reply_to_id": 159718
+    },
+    {
+      "msg_id": 159723,
+      "dialog_id": "-1002564889965",
+      "dialog_name": "☝️🤓 τhe nerds 🧠🥼",
+      "dialog_type": "group",
+      "sender": "Tao Outsider",
+      "text": "leadpoet is dancing some samba right now, but it always recover as fast as it can",
+      "date": "2026-04-03T04:46:02+00:00",
+      "reply_to_id": null
+    },
+    {
+      "msg_id": 159724,
+      "dialog_id": "-1002564889965",
+      "dialog_name": "☝️🤓 τhe nerds 🧠🥼",
+      "dialog_type": "group",
+      "sender": "vaN ττ",
+      "text": "Yeah danger game with 36 at first dereg spot now",
+      "date": "2026-04-03T04:48:14+00:00",
+      "reply_to_id": null
+    },
+    {
+      "msg_id": 159725,
+      "dialog_id": "-1002564889965",
+      "dialog_name": "☝️🤓 τhe nerds 🧠🥼",
+      "dialog_type": "group",
+      "sender": "Tao Outsider",
+      "text": "yep",
+      "date": "2026-04-03T04:49:01+00:00",
+      "reply_to_id": null
+    },
+    {
+      "msg_id": 159726,
+      "dialog_id": "-1002564889965",
+      "dialog_name": "☝️🤓 τhe nerds 🧠🥼",
+      "dialog_type": "group",
+      "sender": "Tao Outsider",
+      "text": "is holiday for you today boys? 4/3",
+      "date": "2026-04-03T04:49:15+00:00",
+      "reply_to_id": null
+    },
+    {
+      "msg_id": 159727,
+      "dialog_id": "-1002564889965",
+      "dialog_name": "☝️🤓 τhe nerds 🧠🥼",
+      "dialog_type": "group",
+      "sender": "τaoSτacker ☯️",
+      "text": "I see 32 in first spot now",
+      "date": "2026-04-03T04:49:23+00:00",
+      "reply_to_id": 159724
+    },
+    {
+      "msg_id": 159728,
+      "dialog_id": "-1002564889965",
+      "dialog_name": "☝️🤓 τhe nerds 🧠🥼",
+      "dialog_type": "group",
+      "sender": "vaN ττ",
+      "text": "ah stupid yeah you right sorry, I was looking at the top section on taostats",
+      "date": "2026-04-03T04:50:15+00:00",
+      "reply_to_id": 159727
+    },
+    {
+      "msg_id": 159729,
+      "dialog_id": "-1002564889965",
+      "dialog_name": "☝️🤓 τhe nerds 🧠🥼",
+      "dialog_type": "group",
+      "sender": "τaoSτacker ☯️",
+      "text": "Wishful thinking",
+      "date": "2026-04-03T04:50:44+00:00",
+      "reply_to_id": null
+    },
+    {
+      "msg_id": 159730,
+      "dialog_id": "-1002564889965",
+      "dialog_name": "☝️🤓 τhe nerds 🧠🥼",
+      "dialog_type": "group",
+      "sender": "C",
+      "text": "36 will trend to first in line pretty quickly",
+      "date": "2026-04-03T04:51:07+00:00",
+      "reply_to_id": null
+    },
+    {
+      "msg_id": 159731,
+      "dialog_id": "-1002564889965",
+      "dialog_name": "☝️🤓 τhe nerds 🧠🥼",
+      "dialog_type": "group",
+      "sender": "C",
+      "text": "EMA is dropping towards .003 with every passing moment",
+      "date": "2026-04-03T04:51:21+00:00",
+      "reply_to_id": null
+    },
+    {
+      "msg_id": 159732,
+      "dialog_id": "-1002564889965",
+      "dialog_name": "☝️🤓 τhe nerds 🧠🥼",
+      "dialog_type": "group",
+      "sender": "vaN ττ",
+      "text": "whats up with loosh tho, why are people dumping it so hard.",
+      "date": "2026-04-03T04:52:39+00:00",
+      "reply_to_id": null
+    },
+    {
+      "msg_id": 159733,
+      "dialog_id": "-1002564889965",
+      "dialog_name": "☝️🤓 τhe nerds 🧠🥼",
+      "dialog_type": "group",
+      "sender": "C",
+      "text": "36 first in line now",
+      "date": "2026-04-03T05:09:39+00:00",
+      "reply_to_id": null
+    },
+    {
+      "msg_id": 159734,
+      "dialog_id": "-1002564889965",
+      "dialog_name": "☝️🤓 τhe nerds 🧠🥼",
+      "dialog_type": "group",
+      "sender": "τaoSτacker ☯️",
+      "text": "That was fast ✅",
+      "date": "2026-04-03T05:11:14+00:00",
+      "reply_to_id": null
+    },
+    {
+      "msg_id": 159735,
+      "dialog_id": "-1002564889965",
+      "dialog_name": "☝️🤓 τhe nerds 🧠🥼",
+      "dialog_type": "group",
+      "sender": "RVCrypto",
+      "text": "Gm Nerds!",
+      "date": "2026-04-03T05:24:43+00:00",
+      "reply_to_id": null
+    },
+    {
+      "msg_id": 159736,
+      "dialog_id": "-1002564889965",
+      "dialog_name": "☝️🤓 τhe nerds 🧠🥼",
+      "dialog_type": "group",
+      "sender": "RVCrypto",
+      "text": "Leadpoet is firing on all cilinders since the public launch, I expect them to do really well",
+      "date": "2026-04-03T05:25:56+00:00",
+      "reply_to_id": 159723
+    },
+    {
+      "msg_id": 159737,
+      "dialog_id": "-1002564889965",
+      "dialog_name": "☝️🤓 τhe nerds 🧠🥼",
+      "dialog_type": "group",
+      "sender": "RVCrypto",
+      "text": "No sleep season for the 71 boys in a good way!",
+      "date": "2026-04-03T05:27:04+00:00",
+      "reply_to_id": null
+    },
+    {
+      "msg_id": 159738,
+      "dialog_id": "-1002564889965",
+      "dialog_name": "☝️🤓 τhe nerds 🧠🥼",
+      "dialog_type": "group",
+      "sender": "Tao Outsider",
+      "text": "Agreed. Still.... samba is not too bad",
+      "date": "2026-04-03T05:36:49+00:00",
+      "reply_to_id": 159736
+    },
+    {
+      "msg_id": 159739,
+      "dialog_id": "-1002564889965",
+      "dialog_name": "☝️🤓 τhe nerds 🧠🥼",
+      "dialog_type": "group",
+      "sender": "Tradiness",
+      "text": "Gm!!",
+      "date": "2026-04-03T05:40:01+00:00",
+      "reply_to_id": 159735
+    },
+    {
+      "msg_id": 159740,
+      "dialog_id": "-1002564889965",
+      "dialog_name": "☝️🤓 τhe nerds 🧠🥼",
+      "dialog_type": "group",
+      "sender": "OBLock",
+      "text": "GM",
+      "date": "2026-04-03T05:40:37+00:00",
+      "reply_to_id": null
+    },
+    {
+      "msg_id": 159741,
+      "dialog_id": "-1002564889965",
+      "dialog_name": "☝️🤓 τhe nerds 🧠🥼",
+      "dialog_type": "group",
+      "sender": "vaN ττ",
+      "text": "Gm fellas",
+      "date": "2026-04-03T05:46:27+00:00",
+      "reply_to_id": null
+    },
+    {
+      "msg_id": 159742,
+      "dialog_id": "-1002564889965",
+      "dialog_name": "☝️🤓 τhe nerds 🧠🥼",
+      "dialog_type": "group",
+      "sender": "τaoSτacker ☯️",
+      "text": "Gm",
+      "date": "2026-04-03T05:48:25+00:00",
+      "reply_to_id": null
+    },
+    {
+      "msg_id": 159743,
+      "dialog_id": "-1002564889965",
+      "dialog_name": "☝️🤓 τhe nerds 🧠🥼",
+      "dialog_type": "group",
+      "sender": "τaoSτacker ☯️",
+      "text": "**🟩🖥️ SN36: Web Agents - Autoppia buy**\nAcc: [👨5CtG..M68C](https://taostats.io/account/5CtGhDnwb4srjL9tB8BX8YJwWt12oJKpZ23yurBH2qniM68C) | Vali: [🖥️SN36 Web Agents - Autoppia](https://taostats.io/validators/5DPtMdkMau8G8fGbPxdYSKCBo94oC7mDyHKMvVdNdsLVT3EF)\nPrice: **0.00328𝞃** ($1.01)\n**153.00Kα** ⇄ **502𝞃** ($154.26K)\nImpact: **+17.61%** | [TX](https://taostats.io/extrinsic/7885334-0006) | [Chart](https://www.tao.app/subnet/36)\nPrice: **0.00356𝞃** | 1h: **+15.41%** | 24h: **+6.11%** | 1w: **+9.01%**\nPool: **6350.02𝞃** vs **1.79Mα** | Circ: **21.69%**\nMCap: **16.20K𝞃** ($4.98M) __(#79)__  | FDV: **$22.95M**",
+      "date": "2026-04-03T05:48:50+00:00",
+      "reply_to_id": null
+    },
+    {
+      "msg_id": 159744,
+      "dialog_id": "-1002564889965",
+      "dialog_name": "☝️🤓 τhe nerds 🧠🥼",
+      "dialog_type": "group",
+      "sender": "τaoSτacker ☯️",
+      "text": "Noooo",
+      "date": "2026-04-03T05:48:54+00:00",
+      "reply_to_id": null
+    },
+    {
+      "msg_id": 159745,
+      "dialog_id": "-1002564889965",
+      "dialog_name": "☝️🤓 τhe nerds 🧠🥼",
+      "dialog_type": "group",
+      "sender": "RVCrypto",
+      "text": "Damn",
+      "date": "2026-04-03T05:49:04+00:00",
+      "reply_to_id": null
+    },
+    {
+      "msg_id": 159746,
+      "dialog_id": "-1002564889965",
+      "dialog_name": "☝️🤓 τhe nerds 🧠🥼",
+      "dialog_type": "group",
+      "sender": "RVCrypto",
+      "text": "Daryxx himself?",
+      "date": "2026-04-03T05:49:12+00:00",
+      "reply_to_id": null
+    },
+    {
+      "msg_id": 159747,
+      "dialog_id": "-1002564889965",
+      "dialog_name": "☝️🤓 τhe nerds 🧠🥼",
+      "dialog_type": "group",
+      "sender": "τaoSτacker ☯️",
+      "text": "Straight from daryxx",
+      "date": "2026-04-03T05:49:20+00:00",
+      "reply_to_id": null
+    },
+    {
+      "msg_id": 159748,
+      "dialog_id": "-1002564889965",
+      "dialog_name": "☝️🤓 τhe nerds 🧠🥼",
+      "dialog_type": "group",
+      "sender": "τaoSτacker ☯️",
+      "text": "I wish I owned some so I could just dump it",
+      "date": "2026-04-03T05:50:13+00:00",
+      "reply_to_id": null
+    }
+  ]
+}
