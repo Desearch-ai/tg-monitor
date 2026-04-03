@@ -320,6 +320,12 @@ async def _scan_once():
     Using get_dialogs() fetches the dialog list upfront as a plain list,
     so there is no async-iterator to clean up when cancellation arrives.
     """
+    # FIX B: Check connection state before attempting any API call.
+    # If the client is disconnected, raise immediately so monitor_loop()
+    # increments consecutive_errors and triggers the reconnect block.
+    if not client.is_connected():
+        raise ConnectionError("Telethon client not connected — triggering reconnect")
+
     total_new = 0
     # Fetch dialog list upfront — safe to cancel here because no iterator is open
     try:
@@ -330,6 +336,15 @@ async def _scan_once():
         print("    ⏱️ get_dialogs timed out — skipping scan")
         return 0
     except Exception as e:
+        # FIX A: Detect disconnect/connection errors and re-raise them.
+        # Previously ALL exceptions were silently swallowed (return 0), which
+        # meant consecutive_errors never incremented and reconnect never fired.
+        # Now, disconnect-class errors propagate to monitor_loop() where
+        # consecutive_errors will reach 3 and trigger a full reconnect.
+        err_str = str(e).lower()
+        if any(kw in err_str for kw in ("disconnected", "not connected", "connection", "cannot send")):
+            print(f"    ⚠️ get_dialogs failed (disconnect): {e}")
+            raise  # Let monitor_loop() handle reconnect
         print(f"    ⚠️ get_dialogs failed: {e}")
         return 0
 
@@ -454,6 +469,19 @@ async def monitor_loop():
             print(f"  ✓ no new messages")
 
         write_snapshot()
+
+        # Write health.json so external tools can detect a stuck monitor.
+        # If this file is older than ~15 minutes, something is wrong.
+        try:
+            health_path = os.path.join(os.path.dirname(DB_PATH), "health.json")
+            with open(health_path, "w") as _hf:
+                json.dump({
+                    "last_scan_at": datetime.now(timezone.utc).isoformat(),
+                    "total_new": total_new,
+                    "consecutive_errors": consecutive_errors,
+                }, _hf)
+        except Exception as _he:
+            print(f"  ⚠️ health.json write error: {_he}")
 
         shutdown_requested = await _interruptible_sleep(SCAN_INTERVAL)
         if shutdown_requested:
