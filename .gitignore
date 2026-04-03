@@ -1,0 +1,10 @@
+.env
+*.session
+*.session-journal
+monitor.db
+monitor.log
+snapshot_nerds.json
+snapshot_state.json
+health.json
+__pycache__/
+*.pyc
