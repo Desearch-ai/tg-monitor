@@ -39,9 +39,11 @@ _shutdown_event: asyncio.Event | None = None
 
 # ── Startup state ─────────────────────────────────────────────────────────────
 # False until Telegram has connected AND dialogs are loaded.
-# /status returns {"status":"starting"} until then so the watchdog sees HTTP 200
-# immediately on startup instead of connection-refused → SIGINT loop.
+# /status and /health return HTTP 200 with additive JSON fields while starting
+# so watchdogs see a stable health surface instead of connection-refused.
 _telegram_ready: bool = False
+_telegram_status: str = "starting"
+_telegram_error: str | None = None
 
 # ── DB ────────────────────────────────────────────────────────────────────────
 DB_PATH = "monitor.db"
@@ -523,21 +525,48 @@ async def api_send(request):
     except Exception as e:
         return web.json_response({"error": str(e)}, status=500)
 
+def build_status_payload() -> dict:
+    """Return the additive health/status payload shared by /, /health, and /status."""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        total = conn.execute("SELECT COUNT(*) FROM messages").fetchone()[0]
+        by_type = conn.execute(
+            "SELECT dialog_type, COUNT(*) FROM messages GROUP BY dialog_type"
+        ).fetchall()
+        conn.close()
+    except Exception as e:
+        total = 0
+        by_type = []
+        db_error = str(e)
+    else:
+        db_error = None
+
+    payload = {
+        "status": _telegram_status,
+        "telegram_ready": _telegram_ready,
+        "total_messages": total,
+        "by_type": {r[0]: r[1] for r in by_type},
+    }
+    if _telegram_error:
+        payload["error"] = _telegram_error
+    if db_error:
+        payload["db_error"] = db_error
+    return payload
+
+
+@routes.get("/")
+async def api_root(request):
+    return web.json_response(build_status_payload())
+
+
+@routes.get("/health")
+async def api_health(request):
+    return web.json_response(build_status_payload())
+
+
 @routes.get("/status")
 async def api_status(request):
-    if not _telegram_ready:
-        return web.json_response({"status": "starting"})
-    conn  = sqlite3.connect(DB_PATH)
-    total = conn.execute("SELECT COUNT(*) FROM messages").fetchone()[0]
-    by_type = conn.execute(
-        "SELECT dialog_type, COUNT(*) FROM messages GROUP BY dialog_type"
-    ).fetchall()
-    conn.close()
-    return web.json_response({
-        "status":        "running",
-        "total_messages": total,
-        "by_type":       {r[0]: r[1] for r in by_type},
-    })
+    return web.json_response(build_status_payload())
 
 async def start_api():
     """Start aiohttp API and keep this coroutine alive indefinitely.
@@ -576,7 +605,7 @@ def _on_api_task_done(task: asyncio.Task) -> None:
 
 
 async def main():
-    global _shutdown_event, _telegram_ready
+    global _shutdown_event, _telegram_ready, _telegram_status, _telegram_error
     _shutdown_event = asyncio.Event()
 
     # ── Install SIGTERM / SIGINT handlers ───────────────────────────────────
@@ -614,8 +643,10 @@ async def main():
     await client.get_dialogs(limit=None)
     print("✅ Dialogs loaded")
 
-    # Mark fully ready — /status now returns {"status":"running"}
+    # Mark fully ready — /status now returns status=running plus additive fields.
     _telegram_ready = True
+    _telegram_status = "running"
+    _telegram_error = None
 
     try:
         await monitor_loop()

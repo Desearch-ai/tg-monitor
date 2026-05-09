@@ -1,0 +1,10 @@
+# Runtime/secrets artifacts should never render textual diffs in review.
+.env -diff
+.env.* -diff
+monitor.db -diff
+monitor.log -diff
+snapshot_*.json -diff
+health.json -diff
+*.session -diff
+*.session-journal -diff
+user_session.session* -diff
