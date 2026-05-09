@@ -116,10 +116,14 @@ def load_config(path: str | Path | None = None, environ: dict[str, str] | None =
     return config
 
 
-def _normalize_sources(sources: Iterable[dict[str, Any]] | None) -> list[dict[str, Any]]:
+def _normalize_sources(sources: Iterable[dict[str, Any] | str | int] | None) -> list[dict[str, Any]]:
     normalized: list[dict[str, Any]] = []
     for source in sources or []:
-        if not source or source.get("enabled", True) is False:
+        if not source:
+            continue
+        if not isinstance(source, dict):
+            source = {"id": str(source), "name": str(source)}
+        if source.get("enabled", True) is False:
             continue
         sid = str(source.get("id") or source.get("dialog_id") or source.get("username") or "").strip()
         name = str(source.get("name") or source.get("title") or sid).strip()

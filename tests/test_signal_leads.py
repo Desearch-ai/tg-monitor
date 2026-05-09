@@ -117,6 +117,26 @@ class LeadCandidateExportTests(unittest.TestCase):
         self.assertEqual(written["growth_app_import_notes"]["side_effects"], "none_read_only_artifact")
         self.assertEqual(len(written["candidates"]), 1)
 
+    def test_source_watchlist_accepts_string_entries_for_simple_runtime_config(self):
+        config_path = Path(self.tmpdir.name) / "rules.json"
+        config_path.write_text(
+            json.dumps({
+                "source_watchlist": ["-1001", "Subnet founders"],
+                "keyword_rules": [{"id": "desearch", "keywords": ["desearch"]}],
+            }),
+            encoding="utf-8",
+        )
+
+        config = signal_leads.load_config(config_path, environ={})
+
+        self.assertEqual([source["id"] for source in config["source_watchlist"]], ["-1001", "Subnet founders"])
+        self.assertTrue(
+            signal_leads.source_matches_watchlist(
+                {"dialog_id": "-1002", "dialog_name": "Subnet founders", "dialog_type": "channel"},
+                config["source_watchlist"],
+            )
+        )
+
     def test_schema_requires_review_import_fields(self):
         schema = json.loads(Path("docs/lead_candidates.schema.json").read_text())
         candidate = schema["properties"]["candidates"]["items"]
