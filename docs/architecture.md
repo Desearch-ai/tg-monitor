@@ -30,7 +30,7 @@ Source-controlled files are code, docs, and config only. Runtime state stays loc
 
 - secrets/env: `.env*`
 - Telegram credentials/sessions: `user_session.session*`, `*.session`, `*.session-journal`
-- data/logs/generated snapshots: `monitor.db`, `monitor.log`, `snapshot_*.json`, `health.json`, radar JSON/MD outputs
+- data/logs/generated snapshots: `monitor.db*`, `monitor.log`, `snapshot_*.json`, `health.json`, radar JSON/MD outputs
 - auth helpers: `reauth.exp` and local-only reauth/session backups
 
 ## Send boundary

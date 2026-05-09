@@ -6,7 +6,7 @@ Telethon + SQLite monitor for Telegram groups/channels/DMs relevant to Desearch 
 
 - Canonical source repo: `/Users/giga/projects/openclaw/tg-monitor` (`Desearch-ai/tg-monitor`).
 - Current live PM2 runtime, until the approved cutover: `/Users/giga/.openclaw/workspace/tg-monitor`.
-- Runtime-only artifacts are intentionally not source-controlled: `.env*`, `monitor.db`, `user_session.session*`, `monitor.log`, `snapshot_*.json`, `health.json`, `nohup.out`, and auth helper files.
+- Runtime-only artifacts are intentionally not source-controlled: `.env*`, `monitor.db*`, `user_session.session*`, `monitor.log`, `snapshot_*.json`, `health.json`, `nohup.out`, and auth helper files.
 - The checked-in `ecosystem.config.js` is prepared for running from the canonical repo path after the separate cutover task.
 
 ## Setup
@@ -55,16 +55,30 @@ The radar scripts read the local SQLite DB and produce context for a Discord-fac
 ./tg_hot_topics_context.py --hours 4 --reply-recency-minutes 90 --output /tmp/tg-hot-topics-context.json
 
 # Compact JSON for an LLM/reporting agent.
-./tg_radar_context_compact.sh > /tmp/tg-hot-topics-compact.json
+TG_MONITOR_DB=/Users/giga/.openclaw/workspace/tg-monitor/monitor.db ./tg_radar_context_compact.sh > /tmp/tg-hot-topics-compact.json
 
 # Full report prompt + local OpenClaw inference wrapper.
 ./tg_radar_report.sh
 ```
 
+Set `TG_MONITOR_DB` or `DB_PATH` when validating against the active runtime DB without copying it into the repo worktree.
+
 `hot_topics_cron_prompt.md` is the prompt asset for the scheduled report. Keep generated JSON/Markdown outputs in `/tmp` or another ignored runtime path.
+
+## Repository boundary verification
+
+Before opening or reviewing a PR, confirm the branch contains source/docs/config only and that radar files are actually tracked:
+
+```bash
+git ls-files .env monitor.db monitor.log snapshot_nerds.json snapshot_state.json 'user_session.session*' '*.session' '*.session-journal'
+git ls-files tg_hot_topics_context.py tg_radar_context_compact.sh tg_radar_report.sh hot_topics_cron_prompt.md
+uv run python -m unittest discover -s tests -v
+```
+
+The first command must print nothing; the second must print all four radar workflow files. Runtime copies in an ignored worktree should be removed from review worktrees, not committed.
 
 ## Safety notes
 
-- Never commit `.env`, Telegram session files, `monitor.db`, logs, snapshots, or generated radar reports.
+- Never commit `.env`, Telegram session files, `monitor.db*`, logs, snapshots, or generated radar reports.
 - Do not call `POST /send` without explicit operator approval for the exact message, target, and reply anchor.
 - Prefer read-only validation (`GET /status`, SQLite queries, radar dry-runs) before any PM2 cutover.

@@ -16,6 +16,6 @@
 ## TG Radar
 
 - `tg_hot_topics_context.py` exports recent SQLite rows, topic keywords, reply-thread stats, and recent reply anchors.
-- `tg_radar_context_compact.sh` trims message text before LLM analysis.
+- `tg_radar_context_compact.sh` trims message text before LLM analysis and can read a non-repo DB via `TG_MONITOR_DB`/`DB_PATH`.
 - `tg_radar_report.sh` builds the report prompt and runs local OpenClaw inference.
 - No radar script performs Telegram sends or live Telegram API calls.

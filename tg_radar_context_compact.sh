@@ -3,8 +3,13 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 PYTHON_BIN="${PYTHON:-python3}"
+TG_MONITOR_DB="${TG_MONITOR_DB:-${DB_PATH:-}}"
+DB_ARGS=()
+if [[ -n "$TG_MONITOR_DB" ]]; then
+  DB_ARGS=(--db "$TG_MONITOR_DB")
+fi
 RAW=/tmp/tg-hot-topics-context.json
-./tg_hot_topics_context.py --hours 4 --reply-recency-minutes 90 --output "$RAW"
+./tg_hot_topics_context.py "${DB_ARGS[@]}" --hours 4 --reply-recency-minutes 90 --output "$RAW"
 "$PYTHON_BIN" - <<'PY'
 import json
 from pathlib import Path

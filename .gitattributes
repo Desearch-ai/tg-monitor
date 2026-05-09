@@ -2,6 +2,7 @@
 .env -diff
 .env.* -diff
 monitor.db -diff
+monitor.db* -diff
 monitor.log -diff
 snapshot_*.json -diff
 health.json -diff

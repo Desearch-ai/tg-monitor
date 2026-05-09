@@ -1,9 +1,11 @@
 .env
 .env.*
+!.env.example
 *.session
 *.session-journal
 user_session.session*
 monitor.db
+monitor.db*
 monitor.log
 snapshot_*.json
 snapshot_nerds.json
