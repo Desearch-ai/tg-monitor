@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Telegram Monitor Lead Candidate Export",
+  "type": "object",
+  "required": ["schema_version", "generated_at", "window", "source_watchlist", "candidate_count", "candidates", "growth_app_import_notes"],
+  "properties": {
+    "schema_version": {"const": "lead-candidates/v1"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "window": {
+      "type": "object",
+      "required": ["minutes", "since"],
+      "properties": {
+        "minutes": {"type": "integer", "minimum": 1},
+        "since": {"type": "string", "format": "date-time"}
+      }
+    },
+    "source_watchlist": {
+      "type": "object",
+      "required": ["mode", "count", "sources"],
+      "properties": {
+        "mode": {"enum": ["configured_sources", "all_non_dm_dialogs"]},
+        "count": {"type": "integer", "minimum": 0},
+        "sources": {"type": "array"}
+      }
+    },
+    "candidate_count": {"type": "integer", "minimum": 0},
+    "candidates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["candidate_id", "source", "message_reference", "author", "matched_keywords", "context_excerpt", "reason", "confidence", "suggested_product_service", "approval_status"],
+        "properties": {
+          "candidate_id": {"type": "string"},
+          "source": {"type": "object"},
+          "message_reference": {"type": "object"},
+          "author": {"type": "object"},
+          "matched_keywords": {"type": "array", "items": {"type": "string"}},
+          "context_excerpt": {"type": "string"},
+          "surrounding_context": {"type": "array"},
+          "reason": {"type": "string"},
+          "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+          "suggested_product_service": {"type": "string"},
+          "approval_status": {"type": "string"}
+        }
+      }
+    },
+    "growth_app_import_notes": {
+      "type": "object",
+      "required": ["approval_required", "side_effects"],
+      "properties": {
+        "approval_required": {"const": true},
+        "side_effects": {"const": "none_read_only_artifact"}
+      }
+    }
+  }
+}

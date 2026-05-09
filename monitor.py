@@ -21,6 +21,8 @@ from telethon.tl.types import (
 )
 from aiohttp import web
 
+import signal_leads
+
 load_dotenv()
 
 sys.stdout = open(sys.stdout.fileno(), mode='w', buffering=1)
@@ -115,7 +117,7 @@ def fetch_messages_db(minutes: int = 60, dialog_id: str = None,
     since = (datetime.now(timezone.utc) - timedelta(minutes=minutes)).isoformat()
     conn  = sqlite3.connect(DB_PATH)
     query = """SELECT dialog_id, dialog_name, dialog_type,
-                      msg_id, sender_name, text, date, reply_to_id
+                      msg_id, sender_id, sender_name, text, date, reply_to_id
                FROM messages WHERE date >= ?"""
     params = [since]
     if dialog_id:
@@ -134,10 +136,11 @@ def fetch_messages_db(minutes: int = 60, dialog_id: str = None,
             "dialog":      r[1],
             "type":        r[2],
             "msg_id":      r[3],
-            "sender":      r[4],
-            "text":        r[5],
-            "date":        r[6],
-            "reply_to_id": r[7],
+            "sender_id":   r[4],
+            "sender":      r[5],
+            "text":        r[6],
+            "date":        r[7],
+            "reply_to_id": r[8],
         }
         for r in rows
     ]
@@ -308,6 +311,20 @@ def write_snapshot():
 SCAN_TIMEOUT = 8 * 60  # 8 minutes max per full scan
 SCAN_INTERVAL = 5 * 60  # 5 minutes between scans
 
+def _load_signal_config() -> dict:
+    """Load watchlist/keyword rules without breaking monitor startup on bad config."""
+    try:
+        return signal_leads.load_config()
+    except Exception as e:
+        print(f"  ⚠️ signal config load error: {e} — using defaults")
+        return signal_leads.load_config(path="/nonexistent-monitor-rules.json", environ={})
+
+def _dialog_is_watchlisted(dialog_id: str, dialog_name: str, dialog_type: str, config: dict) -> bool:
+    return signal_leads.source_matches_watchlist(
+        {"dialog_id": dialog_id, "dialog_name": dialog_name, "dialog_type": dialog_type},
+        config.get("source_watchlist") or [],
+    )
+
 async def _scan_once():
     """Single scan pass — fetches new messages from all dialogs.
 
@@ -335,11 +352,18 @@ async def _scan_once():
         print(f"    ⚠️ get_dialogs failed: {e}")
         return 0
 
+    signal_config = _load_signal_config()
+    watchlist = signal_config.get("source_watchlist") or []
+    if watchlist:
+        print(f"    🎯 source watchlist active: {len(watchlist)} configured sources")
+
     for dialog in dialogs:
         entity      = dialog.entity
         dialog_type = _dialog_type(entity)
         dialog_name = dialog.name or str(dialog.id)
         dialog_id   = str(dialog.id)
+        if not _dialog_is_watchlisted(dialog_id, dialog_name, dialog_type, signal_config):
+            continue
         try:
             msgs = await asyncio.wait_for(
                 fetch_dialog_messages(entity, dialog_id, dialog_name, dialog_type),
@@ -476,6 +500,26 @@ async def api_messages(request):
     msgs       = fetch_messages_db(minutes, dialog_id, dtype, limit)
     return web.json_response({"count": len(msgs), "minutes": minutes, "messages": msgs})
 
+@routes.get("/lead-candidates")
+async def api_lead_candidates(request):
+    try:
+        minutes = max(1, min(int(request.rel_url.query.get("minutes", "1440")), 7 * 24 * 60))
+        limit = max(1, min(int(request.rel_url.query.get("limit", "500")), 5000))
+        include_dms = request.rel_url.query.get("include_dms", "false").lower() in {"1", "true", "yes"}
+    except ValueError:
+        return web.json_response({"error": "minutes and limit must be integers"}, status=400)
+
+    try:
+        payload = signal_leads.export_lead_candidates(
+            DB_PATH,
+            minutes=minutes,
+            limit=limit,
+            include_dms=include_dms,
+        )
+        return web.json_response(payload)
+    except Exception as e:
+        return web.json_response({"error": str(e)}, status=500)
+
 @routes.get("/dialogs")
 async def api_dialogs(request):
     conn  = sqlite3.connect(DB_PATH)
@@ -541,16 +585,26 @@ def build_status_payload() -> dict:
     else:
         db_error = None
 
+    signal_config_error = None
+    try:
+        source_watchlist = signal_leads.watchlist_summary(signal_leads.load_config())
+    except Exception as e:
+        source_watchlist = signal_leads.watchlist_summary(signal_leads.load_config(path="/nonexistent-monitor-rules.json", environ={}))
+        signal_config_error = str(e)
+
     payload = {
         "status": _telegram_status,
         "telegram_ready": _telegram_ready,
         "total_messages": total,
         "by_type": {r[0]: r[1] for r in by_type},
+        "source_watchlist": source_watchlist,
     }
     if _telegram_error:
         payload["error"] = _telegram_error
     if db_error:
         payload["db_error"] = db_error
+    if signal_config_error:
+        payload["signal_config_error"] = signal_config_error
     return payload
 
 
