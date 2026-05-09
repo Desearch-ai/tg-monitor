@@ -337,6 +337,7 @@ def build_candidates(rows: list[dict[str, Any]], config: dict[str, Any]) -> list
                         "id": row.get("sender_id"),
                         "name": row.get("sender_name"),
                     },
+                    "rule_id": rule["id"],
                     "matched_keywords": matches,
                     "context_excerpt": context_excerpt(text, matches, chars),
                     "surrounding_context": _surrounding_context(filtered_rows, index),

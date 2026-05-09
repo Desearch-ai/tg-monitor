@@ -90,6 +90,7 @@ class LeadCandidateExportTests(unittest.TestCase):
         self.assertIn("desearch", candidate["matched_keywords"])
         self.assertIn("low latency web results", candidate["context_excerpt"])
         self.assertEqual(candidate["approval_status"], "needs_review")
+        self.assertEqual(candidate["rule_id"], "desearch-api-intent")
         self.assertEqual(candidate["suggested_product_service"], "Desearch API")
         self.assertGreaterEqual(candidate["confidence"], 0.82)
         self.assertTrue(candidate["reason"])

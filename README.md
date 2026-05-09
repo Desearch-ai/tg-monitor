@@ -51,7 +51,7 @@ curl -fsS http://127.0.0.1:8765/status
 
 Use `monitor_rules.example.json` as the template for a runtime-only `monitor_rules.json` (ignored by git), then set `TG_MONITOR_CONFIG=monitor_rules.json`. `source_watchlist` can include multiple groups/channels by Telegram dialog id, name, type, and aliases. If no watchlist is configured, ingestion remains backward-compatible and scans all dialogs; exports default to all non-DM dialogs.
 
-Keyword rules define `keywords`, `reason`, `confidence`, and `suggested_product_service`. Matching produces review-safe candidates with source, message reference, author info where available, matched keywords, context excerpt, surrounding messages, reason/confidence, suggested product/service, and `approval_status`.
+Keyword rules define `keywords`, `reason`, `confidence`, and `suggested_product_service`. Matching produces review-safe candidates with source, message reference, author info where available, `rule_id`, matched keywords, context excerpt, surrounding messages, reason/confidence, suggested product/service, and `approval_status`.
 
 ```bash
 cp monitor_rules.example.json monitor_rules.json

@@ -28,9 +28,10 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["candidate_id", "source", "message_reference", "author", "matched_keywords", "context_excerpt", "reason", "confidence", "suggested_product_service", "approval_status"],
+        "required": ["candidate_id", "rule_id", "source", "message_reference", "author", "matched_keywords", "context_excerpt", "reason", "confidence", "suggested_product_service", "approval_status"],
         "properties": {
           "candidate_id": {"type": "string"},
+          "rule_id": {"type": "string"},
           "source": {"type": "object"},
           "message_reference": {"type": "object"},
           "author": {"type": "object"},
