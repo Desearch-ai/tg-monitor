@@ -1,3 +1,4 @@
+import asyncio
 import importlib
 import os
 import sqlite3
@@ -141,6 +142,33 @@ class MonitorStatusPayloadTests(unittest.TestCase):
         self.assertEqual(payload["source_watchlist"]["mode"], "configured_sources")
         self.assertEqual(payload["source_watchlist"]["count"], 2)
         self.assertEqual([s["id"] for s in payload["source_watchlist"]["sources"]], ["-1001", "-1002"])
+
+    def test_lead_candidates_api_returns_review_safe_contract(self):
+        os.environ["TG_WATCH_SOURCES"] = "-1"
+        conn = sqlite3.connect(self.monitor.DB_PATH)
+        conn.execute(
+            """
+            INSERT INTO messages
+                (dialog_id, dialog_name, dialog_type, msg_id, sender_id, sender_name, text, date, reply_to_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            ("-1", "Builders", "group", 42, 99, "Alice", "Desearch search API looks useful", "2026-05-09T00:00:00+00:00", None),
+        )
+        conn.commit()
+        conn.close()
+        request = types.SimpleNamespace(rel_url=types.SimpleNamespace(query={"minutes": "10080", "limit": "10"}))
+
+        response = asyncio.run(self.monitor.api_lead_candidates(request))
+
+        self.assertEqual(response["status"], 200)
+        payload = response["payload"]
+        self.assertEqual(payload["schema_version"], "lead-candidates/v1")
+        self.assertEqual(payload["candidate_count"], 1)
+        candidate = payload["candidates"][0]
+        self.assertEqual(candidate["source"], {"id": "-1", "name": "Builders", "type": "group"})
+        self.assertEqual(candidate["message_reference"]["local_ref"], "-1:42")
+        self.assertEqual(candidate["approval_status"], "needs_review")
+        self.assertEqual(payload["growth_app_import_notes"]["side_effects"], "none_read_only_artifact")
 
 
 if __name__ == "__main__":
