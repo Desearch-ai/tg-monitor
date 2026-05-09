@@ -3,7 +3,7 @@ module.exports = {
     {
       name: 'tg-monitor',
       script: 'monitor.py',
-      interpreter: '/opt/homebrew/bin/python3.11',
+      interpreter: '/usr/local/bin/python3',
       cwd: '/Users/giga/projects/openclaw/tg-monitor',
       autorestart: true,
       watch: false,
