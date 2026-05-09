@@ -32,10 +32,11 @@ All endpoints bind to localhost only.
 
 | Endpoint | Purpose |
 | --- | --- |
-| `GET /status` | Backward-compatible service status with additive fields: `telegram_ready`, `total_messages`, `by_type`, optional `error`/`db_error`. |
+| `GET /status` | Backward-compatible service status with additive fields: `telegram_ready`, `total_messages`, `by_type`, `source_watchlist`, optional `error`/`db_error`. |
 | `GET /health` | Same payload as `/status`, for watchdogs and health probes. |
 | `GET /` | Same payload as `/status`, useful for quick browser/curl checks. |
-| `GET /messages?minutes=60&dialog=<id>&type=group&limit=200` | Recent stored messages from local SQLite. |
+| `GET /messages?minutes=60&dialog=<id>&type=group&limit=200` | Recent stored messages from local SQLite. Sender id is additive when available. |
+| `GET /lead-candidates?minutes=1440&limit=500` | Read-only keyword/context candidate export for #tg-alerts/Growth App review. No Growth App write and no Telegram contact. |
 | `GET /dialogs` | Dialogs seen in the local DB. |
 | `GET /groups` | Groups/channels seen in the local DB. |
 | `POST /send` | Sends a Telegram message through the user session. Localhost-only and **manual approval gated**: do not wire this endpoint to unattended cron/agent workflows. |
@@ -45,6 +46,22 @@ Smoke test:
 ```bash
 curl -fsS http://127.0.0.1:8765/status
 ```
+
+## Source watchlist and lead-candidate export
+
+Use `monitor_rules.example.json` as the template for a runtime-only `monitor_rules.json` (ignored by git), then set `TG_MONITOR_CONFIG=monitor_rules.json`. `source_watchlist` can include multiple groups/channels by Telegram dialog id, name, type, and aliases. If no watchlist is configured, ingestion remains backward-compatible and scans all dialogs; exports default to all non-DM dialogs.
+
+Keyword rules define `keywords`, `reason`, `confidence`, and `suggested_product_service`. Matching produces review-safe candidates with source, message reference, author info where available, `rule_id`, matched keywords, context excerpt, surrounding messages, reason/confidence, suggested product/service, and `approval_status`.
+
+```bash
+cp monitor_rules.example.json monitor_rules.json
+TG_MONITOR_CONFIG=monitor_rules.json TG_MONITOR_DB=/path/to/monitor.db \
+  ./export_lead_candidates.py --minutes 1440 --output /tmp/tg-lead-candidates.json
+
+curl -fsS 'http://127.0.0.1:8765/lead-candidates?minutes=1440&limit=500'
+```
+
+Schema: `docs/lead_candidates.schema.json`. This task only writes an artifact/schema for later review/import; it does **not** insert Growth App leads, call Growth App APIs, send Telegram messages, or contact users.
 
 ## TG Radar workflow
 
@@ -72,6 +89,8 @@ Before opening or reviewing a PR, confirm the branch contains source/docs/config
 ```bash
 git ls-files .env monitor.db monitor.log snapshot_nerds.json snapshot_state.json 'user_session.session*' '*.session' '*.session-journal'
 git ls-files tg_hot_topics_context.py tg_radar_context_compact.sh tg_radar_report.sh hot_topics_cron_prompt.md
+# Optional with a real runtime DB path:
+uv run python ./export_lead_candidates.py --db /path/to/monitor.db --output /tmp/tg-lead-candidates.json
 uv run python -m unittest discover -s tests -v
 ```
 
@@ -79,6 +98,6 @@ The first command must print nothing; the second must print all four radar workf
 
 ## Safety notes
 
-- Never commit `.env`, Telegram session files, `monitor.db*`, logs, snapshots, or generated radar reports.
+- Never commit `.env`, Telegram session files, `monitor.db*`, logs, snapshots, runtime `monitor_rules.json`, generated radar reports, or lead-candidate artifacts.
 - Do not call `POST /send` without explicit operator approval for the exact message, target, and reply anchor.
 - Prefer read-only validation (`GET /status`, SQLite queries, radar dry-runs) before any PM2 cutover.

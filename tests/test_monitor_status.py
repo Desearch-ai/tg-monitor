@@ -1,3 +1,4 @@
+import asyncio
 import importlib
 import os
 import sqlite3
@@ -85,6 +86,9 @@ class MonitorStatusPayloadTests(unittest.TestCase):
         os.environ.setdefault("TG_API_ID", "1")
         os.environ.setdefault("TG_API_HASH", "test_hash")
         os.environ.setdefault("TG_PHONE", "+10000000000")
+        os.environ.pop("TG_WATCH_GROUPS", None)
+        os.environ.pop("TG_WATCH_SOURCES", None)
+        os.environ.pop("TG_MONITOR_CONFIG", None)
         sys.modules.pop("monitor", None)
         self.monitor = importlib.import_module("monitor")
         self.tmpdir = tempfile.TemporaryDirectory()
@@ -102,6 +106,7 @@ class MonitorStatusPayloadTests(unittest.TestCase):
         self.assertFalse(payload["telegram_ready"])
         self.assertEqual(payload["total_messages"], 0)
         self.assertEqual(payload["by_type"], {})
+        self.assertEqual(payload["source_watchlist"], {"mode": "all_non_dm_dialogs", "count": 0, "sources": []})
 
     def test_status_payload_keeps_counts_and_additive_ready_field(self):
         conn = sqlite3.connect(self.monitor.DB_PATH)
@@ -128,6 +133,42 @@ class MonitorStatusPayloadTests(unittest.TestCase):
         self.assertTrue(payload["telegram_ready"])
         self.assertEqual(payload["total_messages"], 3)
         self.assertEqual(payload["by_type"], {"channel": 2, "group": 1})
+
+    def test_status_payload_surfaces_configured_source_watchlist(self):
+        os.environ["TG_WATCH_SOURCES"] = "-1001,-1002"
+
+        payload = self.monitor.build_status_payload()
+
+        self.assertEqual(payload["source_watchlist"]["mode"], "configured_sources")
+        self.assertEqual(payload["source_watchlist"]["count"], 2)
+        self.assertEqual([s["id"] for s in payload["source_watchlist"]["sources"]], ["-1001", "-1002"])
+
+    def test_lead_candidates_api_returns_review_safe_contract(self):
+        os.environ["TG_WATCH_SOURCES"] = "-1"
+        conn = sqlite3.connect(self.monitor.DB_PATH)
+        conn.execute(
+            """
+            INSERT INTO messages
+                (dialog_id, dialog_name, dialog_type, msg_id, sender_id, sender_name, text, date, reply_to_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            ("-1", "Builders", "group", 42, 99, "Alice", "Desearch search API looks useful", "2026-05-09T00:00:00+00:00", None),
+        )
+        conn.commit()
+        conn.close()
+        request = types.SimpleNamespace(rel_url=types.SimpleNamespace(query={"minutes": "10080", "limit": "10"}))
+
+        response = asyncio.run(self.monitor.api_lead_candidates(request))
+
+        self.assertEqual(response["status"], 200)
+        payload = response["payload"]
+        self.assertEqual(payload["schema_version"], "lead-candidates/v1")
+        self.assertEqual(payload["candidate_count"], 1)
+        candidate = payload["candidates"][0]
+        self.assertEqual(candidate["source"], {"id": "-1", "name": "Builders", "type": "group"})
+        self.assertEqual(candidate["message_reference"]["local_ref"], "-1:42")
+        self.assertEqual(candidate["approval_status"], "needs_review")
+        self.assertEqual(payload["growth_app_import_notes"]["side_effects"], "none_read_only_artifact")
 
 
 if __name__ == "__main__":
