@@ -1,0 +1,46 @@
+{
+  "source_watchlist": [
+    {
+      "id": "-1002564889965",
+      "name": "☝️🤓 τhe nerds 🧠🥼",
+      "type": "group",
+      "aliases": ["nerds"]
+    },
+    {
+      "id": "-1001234567890",
+      "name": "Example Bittensor channel",
+      "type": "channel",
+      "aliases": ["bittensor"]
+    }
+  ],
+  "keyword_rules": [
+    {
+      "id": "desearch-api-intent",
+      "keywords": ["desearch", "decentralized search", "search api", "web search api", "social search"],
+      "reason": "Developer is discussing search/data infrastructure that Desearch can help with.",
+      "confidence": 0.82,
+      "suggested_product_service": "Desearch API"
+    },
+    {
+      "id": "sn22-subnet-signal",
+      "keywords": ["sn22", "subnet 22", "bittensor", "miners", "validators", "tao"],
+      "reason": "Bittensor/Subnet discussion relevant to Desearch SN22 positioning or tooling.",
+      "confidence": 0.74,
+      "suggested_product_service": "Subnet 22 / Desearch intelligence"
+    },
+    {
+      "id": "builder-buying-intent",
+      "keywords": ["looking for", "need api", "dataset", "real-time data", "low latency", "evaluation tooling"],
+      "reason": "Potential builder/operator need for data, APIs, or evaluation tooling.",
+      "confidence": 0.64,
+      "suggested_product_service": "Desearch developer tooling"
+    }
+  ],
+  "lead_export": {
+    "default_minutes": 1440,
+    "default_limit": 500,
+    "include_dms": false,
+    "context_chars": 220,
+    "approval_status": "needs_review"
+  }
+}

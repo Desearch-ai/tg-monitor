@@ -19,3 +19,6 @@ reauth.exp
 __pycache__/
 *.pyc
 .pytest_cache/
+monitor_rules.json
+/lead_candidates*.json
+/tg-lead-candidates*.json
