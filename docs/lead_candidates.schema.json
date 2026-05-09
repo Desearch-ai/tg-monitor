@@ -32,9 +32,35 @@
         "properties": {
           "candidate_id": {"type": "string"},
           "rule_id": {"type": "string"},
-          "source": {"type": "object"},
-          "message_reference": {"type": "object"},
-          "author": {"type": "object"},
+          "source": {
+            "type": "object",
+            "required": ["id", "name", "type"],
+            "properties": {
+              "id": {"type": "string"},
+              "name": {"type": ["string", "null"]},
+              "type": {"type": ["string", "null"]}
+            }
+          },
+          "message_reference": {
+            "type": "object",
+            "required": ["dialog_id", "msg_id", "local_ref", "timestamp"],
+            "properties": {
+              "dialog_id": {"type": "string"},
+              "msg_id": {"type": "integer"},
+              "local_ref": {"type": "string"},
+              "telegram_url": {"type": ["string", "null"]},
+              "reply_to_id": {"type": ["integer", "null"]},
+              "timestamp": {"type": ["string", "null"], "format": "date-time"}
+            }
+          },
+          "author": {
+            "type": "object",
+            "required": ["id", "name"],
+            "properties": {
+              "id": {"type": ["integer", "string", "null"]},
+              "name": {"type": ["string", "null"]}
+            }
+          },
           "matched_keywords": {"type": "array", "items": {"type": "string"}},
           "context_excerpt": {"type": "string"},
           "surrounding_context": {"type": "array"},

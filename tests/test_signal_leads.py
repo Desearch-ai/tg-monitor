@@ -117,6 +117,17 @@ class LeadCandidateExportTests(unittest.TestCase):
         self.assertEqual(written["growth_app_import_notes"]["side_effects"], "none_read_only_artifact")
         self.assertEqual(len(written["candidates"]), 1)
 
+    def test_schema_requires_review_import_fields(self):
+        schema = json.loads(Path("docs/lead_candidates.schema.json").read_text())
+        candidate = schema["properties"]["candidates"]["items"]
+
+        self.assertEqual(candidate["properties"]["source"]["required"], ["id", "name", "type"])
+        self.assertEqual(
+            candidate["properties"]["message_reference"]["required"],
+            ["dialog_id", "msg_id", "local_ref", "timestamp"],
+        )
+        self.assertEqual(candidate["properties"]["author"]["required"], ["id", "name"])
+
 
 if __name__ == "__main__":
     unittest.main()
