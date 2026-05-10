@@ -313,7 +313,10 @@ def _status_payload(app: LocalUiApp) -> dict[str, Any]:
 def _watched_sources(status_payload: dict[str, Any], store_summary: dict[str, Any]) -> list[dict[str, Any]]:
     raw = status_payload.get("source_watchlist") or status_payload.get("watched_sources") or []
     if isinstance(raw, dict):
-        raw = list(raw.values())
+        if isinstance(raw.get("sources"), list):
+            raw = raw["sources"]
+        else:
+            raw = [value for value in raw.values() if isinstance(value, dict)]
     watched: list[dict[str, Any]] = []
     for item in raw if isinstance(raw, list) else []:
         if isinstance(item, dict):
