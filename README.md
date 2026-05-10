@@ -104,7 +104,9 @@ The first command must print nothing; the second must print all four radar workf
 
 ## O-71 read-only Telegram Sync CLI + local UI
 
-This repo includes a read-first operator surface inspired by local sync CLIs: `tg_sync` exposes a scriptable CLI and a localhost-only browser UI for inspecting Telegram Monitor health, dialogs, messages, search results, and thread exports without touching Telegram write paths.
+This repo includes a read-first operator surface inspired by birdclaw/local sync workspaces: `tg_sync` exposes a scriptable CLI and a localhost-only browser app for inspecting Telegram Monitor health, sources, local DB search, message threads, and exports without touching Telegram write paths.
+
+UI implementation tradeoff: the repo is Python-only (`requirements.txt`, no `package.json`), so O-71 is implemented as a Python-served HTML/CSS/JS app instead of adding React/Vite tooling. The browser surface is still structured as four app lanes, not a generated debug form.
 
 Install/runtime notes:
 
@@ -154,6 +156,13 @@ uv run python -m tg_sync.ui \
 # Open http://127.0.0.1:8787
 ```
 
-The UI binds to `127.0.0.1` by default and refuses non-localhost hosts. It shows service/session health, a dialog list, search/recent messages, thread view/export, and a visible read-only banner. Compose/reply/delete controls are disabled placeholders only.
+The UI binds to `127.0.0.1` by default and refuses non-localhost hosts. Open `http://127.0.0.1:8787` after starting it.
 
-Safety boundary: O-71 does **not** add `send`, `reply`, or `delete` CLI commands. The UI does not register `/send` or `/api/send` routes and does not call the existing `POST /send` endpoint. Telegram sends/replies/deletes remain manual/operator-approved only; do not connect these tools to autonomous agent or cron write workflows.
+Workspace lanes:
+
+- **Home / Sync Dashboard** — API status, Telegram readiness, DB path, total local messages, by-type counts, source/watchlist summary, latest message freshness, recent activity, read-only state, and primary actions for Search, Chats, recent-context export, and JSON status copy.
+- **Chats / Sources** — left-side source list with all/watched/groups/channels/DM filters, name/id search, recent/count/stale sorting, selected-chat header, local message list, reply indicators, and Open thread actions.
+- **Search / Research** — local SQLite search with query, source, type, sender, date/recency, and limit filters. Results show source, sender, timestamp, preview context, Open thread, and JSON/Markdown copy helpers. This is local DB search, not a live Telegram query.
+- **Thread / Export** — anchor message, parent chain, direct replies, nearby context, Markdown/JSON download controls, copyable local refs, metadata-only redaction toggle, and export summary with context counts/source/export timestamp.
+
+Safety boundary: O-71 does **not** add `send`, `reply`, or `delete` CLI commands. The UI does not register `/send` or `/api/send` routes, does not call the existing Telegram write endpoint, and intentionally shows no compose/reply/delete placeholders. Telegram sends/replies/deletes remain manual/operator-approved only; do not connect these tools to autonomous agent or cron write workflows.
