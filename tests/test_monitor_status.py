@@ -17,8 +17,11 @@ def install_dependency_stubs():
     telethon = types.ModuleType("telethon")
 
     class TelegramClient:
-        def __init__(self, *args, **kwargs):
-            pass
+        instances = []
+
+        def __init__(self, session, *args, **kwargs):
+            self.session = session
+            self.__class__.instances.append(self)
 
     telethon.TelegramClient = TelegramClient
     sys.modules["telethon"] = telethon
@@ -89,6 +92,10 @@ class MonitorStatusPayloadTests(unittest.TestCase):
         os.environ.pop("TG_WATCH_GROUPS", None)
         os.environ.pop("TG_WATCH_SOURCES", None)
         os.environ.pop("TG_MONITOR_CONFIG", None)
+        os.environ.pop("TG_SYNC_ACCOUNT", None)
+        os.environ.pop("TG_SYNC_ACCOUNTS_CONFIG", None)
+        os.environ.pop("TG_SESSION_PATH", None)
+        os.environ.pop("TG_MONITOR_DB", None)
         sys.modules.pop("monitor", None)
         self.monitor = importlib.import_module("monitor")
         self.tmpdir = tempfile.TemporaryDirectory()
@@ -170,6 +177,21 @@ class MonitorStatusPayloadTests(unittest.TestCase):
         self.assertEqual(candidate["approval_status"], "needs_review")
         self.assertEqual(payload["growth_app_import_notes"]["side_effects"], "none_read_only_artifact")
 
+
+class MonitorAccountRuntimeTests(unittest.TestCase):
+    def setUp(self):
+        install_dependency_stubs()
+        os.environ["TG_API_ID"] = "1"
+        os.environ["TG_API_HASH"] = "test_hash"
+        os.environ["TG_PHONE"] = "+10000000000"
+        os.environ["TG_SESSION_PATH"] = "sessions/runtime-default"
+        sys.modules.pop("monitor", None)
+
+    def test_monitor_client_uses_configurable_session_path_not_hardcoded_only(self):
+        monitor = importlib.import_module("monitor")
+
+        self.assertEqual(monitor.ACTIVE_ACCOUNT.session_path, "sessions/runtime-default")
+        self.assertEqual(monitor.client.session, "sessions/runtime-default")
 
 if __name__ == "__main__":
     unittest.main()

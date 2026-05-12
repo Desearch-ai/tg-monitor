@@ -130,10 +130,17 @@ uv run python -m tg_sync.cli chats --limit 25
 uv run python -m tg_sync.cli dialogs --type group --limit 50 --json
 uv run python -m tg_sync.cli groups --json
 
-# Recent/search messages. Use --no-text for safe evidence captures.
-uv run python -m tg_sync.cli messages --minutes 60 --limit 20 --no-text
+# Account registry and bounded historical backfill. Registry JSON stores only metadata, not API secrets or session files.
+uv run python -m tg_sync.cli accounts list --json
+uv run python -m tg_sync.cli accounts add ops --session sessions/ops --db db/ops.db --json
+uv run python -m tg_sync.cli accounts switch ops --json
+uv run python -m tg_sync.cli accounts status --json
+uv run python -m tg_sync.cli sync backfill --account ops --dialog -1002564889965 --limit 100 --before-id <older_than_msg_id> --dry-run --json
+
+# Recent/search messages. Use --account to scope reads when multiple accounts share a DB. Use --no-text for safe evidence captures.
+uv run python -m tg_sync.cli messages --account ops --minutes 60 --limit 20 --no-text
 uv run python -m tg_sync.cli recent --dialog -1002564889965 --limit 20 --json --no-text
-uv run python -m tg_sync.cli search "bittensor" --type group --limit 25 --json --no-text
+uv run python -m tg_sync.cli search "bittensor" --account ops --type group --limit 25 --json --no-text
 
 # Thread view/export from local SQLite only.
 uv run python -m tg_sync.cli thread --dialog -1002564889965 --message-id <msg_id> --context 10 --json --no-text
@@ -165,4 +172,4 @@ Workspace lanes:
 - **Search / Research** — local SQLite search with query, source, type, sender, date/recency, and limit filters. Results show source, sender, timestamp, preview context, Open thread, and JSON/Markdown copy helpers. This is local DB search, not a live Telegram query.
 - **Thread / Export** — anchor message, parent chain, direct replies, nearby context, Markdown/JSON download controls, copyable local refs, metadata-only redaction toggle, and export summary with context counts/source/export timestamp.
 
-Safety boundary: O-71 does **not** add `send`, `reply`, or `delete` CLI commands. The UI does not register `/send` or `/api/send` routes, does not call the existing Telegram write endpoint, and intentionally shows no compose/reply/delete placeholders. Telegram sends/replies/deletes remain manual/operator-approved only; do not connect these tools to autonomous agent or cron write workflows.
+Safety boundary: O-71 does **not** add `send`, `reply`, or `delete` CLI commands. Historical sync is an explicit operator action and is capped (`--limit`, max 1000) with `--dry-run` support; it only reads Telegram messages and writes local SQLite rows. The UI does not register `/send` or `/api/send` routes, does not call the existing Telegram write endpoint, and intentionally shows no compose/reply/delete placeholders. Telegram sends/replies/deletes remain manual/operator-approved only; do not connect these tools to autonomous agent or cron write workflows.

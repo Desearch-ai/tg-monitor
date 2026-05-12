@@ -11,7 +11,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from .accounts import AccountRegistry
 from .api_client import ApiClient, ApiUnavailable
+from .backfill import build_backfill_request, run_backfill
 from .config import DEFAULT_API_URL, clamp_limit, resolve_db_path
 from .store import DBUnavailable, ReadOnlyStore, messages_to_jsonl, thread_to_markdown
 
@@ -29,6 +31,7 @@ def _common_parser(defaults: bool) -> argparse.ArgumentParser:
     common.add_argument("--json", action="store_true", default=False if defaults else argparse.SUPPRESS, help="Emit machine-readable JSON only")
     common.add_argument("--limit", type=int, default=None if defaults else argparse.SUPPRESS, help="Maximum rows to return (hard-capped)")
     common.add_argument("--no-text", "--redact-text", dest="no_text", action="store_true", default=False if defaults else argparse.SUPPRESS, help="Redact message bodies")
+    common.add_argument("--account", default=None if defaults else argparse.SUPPRESS, help="Named sync account (defaults active account)")
     return common
 
 
@@ -41,6 +44,27 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("status", parents=[sub_common], help="Show service status")
     sub.add_parser("health", parents=[sub_common], help="Show service health")
+
+
+    accounts = sub.add_parser("accounts", parents=[sub_common], help="Manage local sync account registry")
+    account_sub = accounts.add_subparsers(dest="account_command", required=True)
+    account_sub.add_parser("list", parents=[sub_common], help="List configured accounts")
+    account_sub.add_parser("status", parents=[sub_common], help="Show active/configured account")
+    add = account_sub.add_parser("add", parents=[sub_common], help="Add or update an account entry (no secrets stored)")
+    add.add_argument("name")
+    add.add_argument("--label")
+    add.add_argument("--session", dest="session_path")
+    add.add_argument("--credentials-source")
+    switch = account_sub.add_parser("switch", parents=[sub_common], help="Switch active account")
+    switch.add_argument("name")
+
+    sync = sub.add_parser("sync", parents=[sub_common], help="Operator-initiated bounded sync actions")
+    sync_sub = sync.add_subparsers(dest="sync_command", required=True)
+    backfill = sync_sub.add_parser("backfill", parents=[sub_common], help="Backfill older Telegram messages into the selected account DB")
+    backfill.add_argument("--dialog", required=True, help="Dialog id/username to read")
+    backfill.add_argument("--before-id", type=int)
+    backfill.add_argument("--before-date", help="ISO timestamp; passed as an older-than cursor")
+    backfill.add_argument("--dry-run", action="store_true", help="Validate and print the bounded read plan without Telegram/network access")
 
     for name in ("chats", "dialogs", "groups"):
         p = sub.add_parser(name, parents=[sub_common], help="List known dialogs/chats")
@@ -103,13 +127,18 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     try:
         args = build_parser().parse_args(argv)
-        args.limit = clamp_limit(args.limit, default=50)
+        if not (args.command == "sync" and getattr(args, "sync_command", None) == "backfill"):
+            args.limit = clamp_limit(args.limit, default=50)
     except (SystemExit, ValueError) as exc:
         return EXIT_BAD_ARGS if not isinstance(exc, SystemExit) else int(exc.code or 0)
 
     try:
         if args.command in {"status", "health"}:
             return _cmd_status(args, health=args.command == "health")
+        if args.command == "accounts":
+            return _cmd_accounts(args)
+        if args.command == "sync" and args.sync_command == "backfill":
+            return _cmd_sync_backfill(args)
         if args.command in {"chats", "dialogs", "groups"}:
             return _cmd_dialogs(args, groups_only=args.command == "groups")
         if args.command in {"messages", "recent"}:
@@ -130,6 +159,9 @@ def main(argv: list[str] | None = None) -> int:
     except ApiUnavailable as exc:
         _emit(args, {"ok": False, "api_url": args.api_url, "error": str(exc)}, error=True)
         return EXIT_API_UNAVAILABLE
+    except ValueError as exc:
+        _emit(args, {"ok": False, "error": str(exc)}, error=True)
+        return EXIT_BAD_ARGS
     except Exception as exc:  # keep CLI errors safe and non-secret
         _emit(args, {"ok": False, "error": str(exc)}, error=True)
         return EXIT_RUNTIME_ERROR
@@ -149,6 +181,41 @@ def _cmd_status(args: argparse.Namespace, health: bool = False) -> int:
     return EXIT_OK
 
 
+def _cmd_accounts(args: argparse.Namespace) -> int:
+    registry = AccountRegistry()
+    if args.account_command == "list":
+        accounts = [account.to_json() for account in registry.list_accounts()]
+        payload = {"ok": True, "active_account": registry.active_account(getattr(args, "account", None)).id, "accounts": accounts, "config_path": str(registry.path)}
+        _emit(args, payload, table=_format_accounts(accounts))
+        return EXIT_OK
+    if args.account_command == "status":
+        account = registry.active_account(getattr(args, "account", None))
+        payload = {"ok": True, "active_account": account.id, "account": account.to_json(), "config_path": str(registry.path)}
+        _emit(args, payload, table=_format_account_status(payload))
+        return EXIT_OK
+    if args.account_command == "add":
+        account = registry.add_account(args.name, label=args.label, session_path=args.session_path, db_path=args.db, credentials_source=args.credentials_source)
+        payload = {"ok": True, "active_account": registry.active_account().id, "account": account.to_json(), "config_path": str(registry.path)}
+        _emit(args, payload, table=_format_account_status(payload))
+        return EXIT_OK
+    if args.account_command == "switch":
+        account = registry.switch(args.name)
+        payload = {"ok": True, "active_account": account.id, "account": account.to_json(), "config_path": str(registry.path)}
+        _emit(args, payload, table=_format_account_status(payload))
+        return EXIT_OK
+    return EXIT_BAD_ARGS
+
+
+def _cmd_sync_backfill(args: argparse.Namespace) -> int:
+    account = AccountRegistry().active_account(getattr(args, "account", None))
+    if args.db:
+        account = type(account)(**{**account.__dict__, "db_path": resolve_db_path(args.db)})
+    request = build_backfill_request(args.dialog, args.limit, before_id=args.before_id, before_date=args.before_date, dry_run=args.dry_run)
+    payload = run_backfill(account, request)
+    _emit(args, payload, table=_format_backfill(payload))
+    return EXIT_OK
+
+
 def _cmd_dialogs(args: argparse.Namespace, groups_only: bool = False) -> int:
     dialogs: list[dict[str, Any]] = []
     source = "api"
@@ -160,7 +227,7 @@ def _cmd_dialogs(args: argparse.Namespace, groups_only: bool = False) -> int:
     except ApiUnavailable as exc:
         api_error = exc
     try:
-        db_dialogs = ReadOnlyStore(args.db).list_dialogs(
+        db_dialogs = _store(args).list_dialogs(
             dialog_type=args.dialog_type,
             limit=args.limit,
             query=args.query,
@@ -181,9 +248,9 @@ def _cmd_dialogs(args: argparse.Namespace, groups_only: bool = False) -> int:
 
 
 def _cmd_messages(args: argparse.Namespace) -> int:
-    db_requested = bool(args.db or os.environ.get("TG_MONITOR_DB") or os.environ.get("DB_PATH"))
+    db_requested = bool(args.db or getattr(args, "account", None) or os.environ.get("TG_MONITOR_DB") or os.environ.get("DB_PATH"))
     if db_requested:
-        messages = ReadOnlyStore(args.db).recent_messages(
+        messages = _store(args).recent_messages(
             minutes=args.minutes,
             dialog_id=args.dialog,
             dialog_type=args.dialog_type,
@@ -204,7 +271,7 @@ def _cmd_messages(args: argparse.Namespace) -> int:
 
 
 def _cmd_search(args: argparse.Namespace) -> int:
-    messages = ReadOnlyStore(args.db).search_messages(
+    messages = _store(args).search_messages(
         args.query,
         dialog_id=args.dialog,
         dialog_type=args.dialog_type,
@@ -223,7 +290,7 @@ def _cmd_search(args: argparse.Namespace) -> int:
 
 
 def _cmd_thread(args: argparse.Namespace) -> int:
-    thread = ReadOnlyStore(args.db).get_thread(args.dialog, args.message_id, context=args.context, max_depth=args.max_depth)
+    thread = _store(args).get_thread(args.dialog, args.message_id, context=args.context, max_depth=args.max_depth)
     if args.no_text:
         _redact_thread(thread)
     _emit(args, {"ok": True, **thread}, table=thread_to_markdown(thread))
@@ -231,7 +298,7 @@ def _cmd_thread(args: argparse.Namespace) -> int:
 
 
 def _cmd_export(args: argparse.Namespace) -> int:
-    store = ReadOnlyStore(args.db)
+    store = _store(args)
     if args.export_command == "thread":
         thread = store.get_thread(args.dialog, args.message_id, context=args.context, max_depth=args.max_depth)
         if args.no_text:
@@ -259,7 +326,7 @@ def _cmd_tail(args: argparse.Namespace) -> int:
     seen: set[tuple[str, int]] = set()
     try:
         while True:
-            messages = ReadOnlyStore(args.db).recent_messages(dialog_id=args.dialog, dialog_type=args.dialog_type, limit=args.limit)
+            messages = _store(args).recent_messages(dialog_id=args.dialog, dialog_type=args.dialog_type, limit=args.limit)
             if args.contains:
                 messages = [m for m in messages if args.contains.lower() in (m.get("text") or "").lower()]
             fresh = [m for m in reversed(messages) if (m["dialog_id"], m["msg_id"]) not in seen]
@@ -301,6 +368,12 @@ def _emit(args: argparse.Namespace, payload: dict[str, Any], table: str | None =
         print(table if table is not None else _format_status(payload))
 
 
+def _store(args: argparse.Namespace) -> ReadOnlyStore:
+    account = AccountRegistry().active_account(getattr(args, "account", None))
+    db_path = args.db or str(account.db_path)
+    return ReadOnlyStore(db_path, account_id=account.id)
+
+
 def _format_status(data: dict[str, Any]) -> str:
     return "\n".join(
         [
@@ -311,6 +384,32 @@ def _format_status(data: dict[str, Any]) -> str:
             f"By type: {data.get('by_type', {})}",
         ] + ([f"Error: {data['error']}"] if data.get("error") else [])
     )
+
+
+def _format_accounts(accounts: list[dict[str, Any]]) -> str:
+    lines = ["active\taccount_id\tsession_path\tdb_path\tcredentials_source\tlabel"]
+    for account in accounts:
+        lines.append(f"{ '*' if account.get('active') else ''}\t{account.get('id')}\t{account.get('session_path')}\t{account.get('db_path')}\t{account.get('credentials_source')}\t{account.get('label')}")
+    return "\n".join(lines)
+
+
+def _format_account_status(payload: dict[str, Any]) -> str:
+    account = payload.get("account", {})
+    return "\n".join([
+        f"Active account: {payload.get('active_account')}",
+        f"Session path: {account.get('session_path')}",
+        f"DB path: {account.get('db_path')}",
+        f"Credentials: {account.get('credentials_source')}",
+        f"Config: {payload.get('config_path')}",
+    ])
+
+
+def _format_backfill(payload: dict[str, Any]) -> str:
+    request = payload.get("request", {})
+    account = payload.get("account", {})
+    if payload.get("dry_run"):
+        return f"DRY RUN: would read up to {request.get('limit')} older messages from {request.get('dialog')} for account {account.get('id')} into {account.get('db_path')} (Telegram writes forbidden)"
+    return f"Backfill complete: fetched={payload.get('fetched')} saved={payload.get('saved')} account={account.get('id')} dialog={request.get('dialog')}"
 
 
 def _format_dialogs(dialogs: list[dict[str, Any]]) -> str:
