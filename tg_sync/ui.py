@@ -18,7 +18,9 @@ from pathlib import Path
 from typing import Any, Callable
 from urllib.parse import parse_qs, urlparse
 
+from .accounts import AccountRegistry
 from .api_client import ApiClient, ApiUnavailable
+from .backfill import MAX_BACKFILL_LIMIT
 from .config import DEFAULT_API_URL, DEFAULT_UI_HOST, DEFAULT_UI_PORT, clamp_limit, resolve_db_path
 from .store import DBUnavailable, ReadOnlyStore, thread_to_markdown
 
@@ -91,6 +93,8 @@ def render_index_html(api_url: str, db_path: str | Path) -> str:
     table {{ width:100%; border-collapse:collapse; }} th,td {{ text-align:left; border-bottom:1px solid var(--line); padding:9px; vertical-align:top; }} th {{ color:#aac0dc; font-size:12px; text-transform:uppercase; letter-spacing:.04em; }}
     pre {{ white-space:pre-wrap; overflow-wrap:anywhere; background:#06101d; border:1px solid var(--line); border-radius:14px; padding:12px; max-height:420px; overflow:auto; }}
     code {{ color:#bae6fd; }} .empty {{ border:1px dashed #2c4565; border-radius:14px; padding:18px; color:var(--muted); text-align:center; }}
+    .notice {{ border:1px solid #2b425f; border-radius:14px; padding:10px 12px; background:#091524; color:#cfe5ff; font-size:13px; line-height:1.4; }}
+    .notice.bad {{ border-color:#9f1239; color:#fecdd3; }} .notice.warn {{ border-color:#92400e; color:#fde68a; }} .notice.good {{ border-color:#166534; color:#bbf7d0; }}
     @media (max-width: 980px) {{ .shell,.workspace,.grid.cols-2,.grid.cols-3 {{ grid-template-columns:1fr; }} .sidebar {{ position:relative; height:auto; }} }}
   </style>
 </head>
@@ -100,6 +104,7 @@ def render_index_html(api_url: str, db_path: str | Path) -> str:
     <div class="brand"><h1>Telegram Sync</h1><small>birdclaw-style local operator workspace</small></div>
     <div class="readonly"><strong>Read-only local workspace.</strong><br/>This O-71 surface only reads the localhost API and SQLite DB. It provides no Telegram send, reply, delete, or compose controls.</div>
     <div class="muted">API <code>{api_url}</code><br/>DB <code>{db_path}</code></div>
+    <div class="readonly" id="accountPanel"><strong>Account</strong><br/><span id="accountStatus">Single-account mode until account registry is configured.</span><select id="accountSelector" onchange="setActiveAccount(this.value)" style="width:100%; margin-top:8px"><option value="default">Default account</option></select></div>
     <nav class="nav" aria-label="workspace lanes">
       <button class="active" data-lane="home" onclick="showLane('home')">Home / Sync Dashboard</button>
       <button data-lane="chats" onclick="showLane('chats')">Chats / Sources</button>
@@ -109,7 +114,7 @@ def render_index_html(api_url: str, db_path: str | Path) -> str:
   </aside>
   <main class="content">
     <div class="topbar">
-      <div><h1 class="lane-title" id="laneTitle">Home / Sync Dashboard</h1><div class="muted">{RUNTIME_NOTE}</div></div>
+      <div><h1 class="lane-title" id="laneTitle">Home / Sync Dashboard</h1><div class="muted">{RUNTIME_NOTE}</div><div class="muted">Internal review: default bind is localhost. For Tailscale use explicit <code>--host 0.0.0.0 --allow-internal-bind</code>; this UI is read-only and renders no secrets/session paths.</div></div>
       <div class="actions"><button onclick="refreshAll()">Refresh workspace</button><button onclick="copyStatusJson()">Copy JSON status</button></div>
     </div>
 
@@ -125,12 +130,12 @@ def render_index_html(api_url: str, db_path: str | Path) -> str:
     <section id="lane-chats" class="lane">
       <div class="workspace">
         <div class="card"><h2>Chats / Sources</h2><div class="filters"><select id="sourceScope"><option value="all">all</option><option value="watched">watched</option><option value="group">groups</option><option value="channel">channels</option><option value="dm">DMs</option></select><input id="sourceQuery" placeholder="name or id"/><select id="sourceSort"><option value="recent">sort recent</option><option value="count">sort count</option><option value="stale">sort stale</option></select><button onclick="loadDialogs()">Apply</button></div><div id="dialogs" class="list" style="margin-top:12px"></div></div>
-        <div class="card"><div id="selectedChatHeader" class="empty">Choose a source to inspect local messages.</div><div class="actions" style="margin:12px 0"><button onclick="loadSelectedMessages()">Load messages</button><button onclick="showLane('search'); runSearchForSelected()">Search in source</button></div><div id="chatMessages" class="list"></div></div>
+        <div class="card"><div id="selectedChatHeader" class="empty">Choose a source to inspect local messages.</div><div class="actions" style="margin:12px 0"><button onclick="loadSelectedMessages()">Load latest local messages</button><button onclick="showLane('search'); runSearchForSelected()">Search in source</button></div><div class="notice"><strong>Older local history</strong><br/>Use bounded cursors so this panel does not imply only the newest messages exist. Load older local messages from SQLite, or use Historical sync dry-run copy when local history is incomplete.</div><div class="filters" style="margin:10px 0"><input id="olderBeforeId" type="number" min="1" placeholder="before msg id"/><input id="olderBeforeDate" placeholder="before ISO/date"/><input id="olderLimit" type="number" min="1" max="1000" value="50"/><button onclick="loadOlderMessages()">Load older local messages</button><button onclick="copyBackfillPlan()">Historical sync dry-run</button></div><div id="historyStatus" class="muted">Older fetches are read-only and capped at {MAX_BACKFILL_LIMIT}.</div><div id="chatMessages" class="list" style="margin-top:10px"></div></div>
       </div>
     </section>
 
     <section id="lane-search" class="lane">
-      <div class="card"><h2>Search / Research</h2><p class="muted">Local SQLite search — not a live Telegram query. Filters only inspect stored monitor data.</p><div class="filters"><input id="searchQuery" placeholder="query text"/><input id="searchDialog" placeholder="source/chat id"/><select id="searchType"><option value="">all types</option><option value="group">group</option><option value="channel">channel</option><option value="dm">dm</option></select><input id="searchSender" placeholder="sender"/><input id="searchMinutes" type="number" min="1" placeholder="recency minutes"/><input id="searchSince" placeholder="since ISO/date"/><input id="searchUntil" placeholder="until ISO/date"/><input id="searchLimit" type="number" min="1" max="1000" value="25"/><button onclick="runSearch()">Search DB</button><button onclick="copySearch('json')">Copy JSON</button><button onclick="copySearch('markdown')">Copy Markdown</button></div></div>
+      <div class="card"><h2>Search / Research</h2><p class="muted">Local SQLite search — not a live Telegram query. Filters only inspect stored monitor data.</p><div id="searchStatus" class="notice">Enter a query to search the real local SQLite DB. Empty, bad DB, and no-match states are shown here instead of blank panels.</div><div class="filters" style="margin-top:10px"><input id="searchQuery" placeholder="query text"/><input id="searchDialog" placeholder="source/chat id"/><select id="searchType"><option value="">all types</option><option value="group">group</option><option value="channel">channel</option><option value="dm">dm</option></select><input id="searchSender" placeholder="sender"/><input id="searchMinutes" type="number" min="1" placeholder="recency minutes"/><input id="searchSince" placeholder="since ISO/date"/><input id="searchUntil" placeholder="until ISO/date"/><input id="searchLimit" type="number" min="1" max="1000" value="25"/><button onclick="runSearch()">Search DB</button><button onclick="copySearch('json')">Copy JSON</button><button onclick="copySearch('markdown')">Copy Markdown</button></div></div>
       <div class="card" style="margin-top:14px"><h2>Results</h2><div id="searchResults" class="list"></div></div>
     </section>
 
@@ -144,34 +149,43 @@ def render_index_html(api_url: str, db_path: str | Path) -> str:
   </main>
 </div>
 <script>
-const STATE = {{...{json.dumps(safe_state)}, status: null, dashboard: null, dialogs: [], selectedDialog: null, messages: [], searchResults: [], thread: null}};
+const STATE = {{...{json.dumps(safe_state)}, status: null, dashboard: null, dialogs: [], selectedDialog: null, messages: [], searchResults: [], thread: null, accounts: [], activeAccount: "default"}};
 function qs(id) {{ return document.getElementById(id); }}
 function params(obj) {{ return new URLSearchParams(Object.entries(obj).filter(([,v]) => v !== '' && v != null && v !== false)); }}
 function esc(s) {{ return String(s ?? '').replace(/[&<>"']/g, c => ({{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}}[c])); }}
-async function getJson(url) {{ const res = await fetch(url); const data = await res.json(); if (!res.ok) throw new Error(data.error || res.statusText); return data; }}
+async function getJson(url) {{ const res = await fetch(url); const data = await res.json(); if (!res.ok) {{ const err = new Error(data.error || res.statusText); err.payload = data; throw err; }} return data; }}
+function accountParam() {{ return STATE.activeAccount ? {{account: STATE.activeAccount}} : {{}}; }}
+function setNotice(id, message, kind='') {{ const el = qs(id); if (!el) return; el.className = 'notice' + (kind ? ' ' + kind : ''); el.innerHTML = message; }}
 function showLane(name) {{ document.querySelectorAll('.lane').forEach(el => el.classList.remove('active')); qs('lane-' + name).classList.add('active'); document.querySelectorAll('.nav button').forEach(b => b.classList.toggle('active', b.dataset.lane === name)); qs('laneTitle').textContent = {{home:'Home / Sync Dashboard', chats:'Chats / Sources', search:'Search / Research', thread:'Thread / Export'}}[name]; }}
 function pill(state) {{ const cls = state === 'fresh' ? 'good' : state === 'stale' ? 'warn' : state === 'error' ? 'bad' : ''; return `<span class="pill ${{cls}}">${{esc(state || 'unknown')}}</span>`; }}
 function metric(label, value, sub='') {{ return `<div class="card"><div class="muted">${{esc(label)}}</div><div class="metric">${{esc(value)}}</div>${{sub ? `<div class="muted">${{esc(sub)}}</div>` : ''}}</div>`; }}
-async function refreshAll() {{ await loadDashboard(); await loadDialogs(); }}
-async function loadDashboard() {{ const data = await getJson('/api/dashboard'); STATE.dashboard = data; STATE.status = data.api_status; renderHome(data); }}
+async function refreshAll() {{ await loadAccounts(); await loadDashboard(); await loadDialogs(); }}
+async function loadAccounts() {{ try {{ const data = await getJson('/api/accounts'); STATE.accounts = data.accounts || []; STATE.activeAccount = data.active_account || STATE.accounts.find(a => a.active)?.id || 'default'; renderAccountPanel(data); }} catch (err) {{ STATE.accounts = [{{id:'default', label:'Default account', active:true}}]; STATE.activeAccount = 'default'; renderAccountPanel({{mode:'single', accounts: STATE.accounts, active_account:'default'}}); }} }}
+function renderAccountPanel(data) {{ const accounts = STATE.accounts.length ? STATE.accounts : [{{id:'default', label:'Default account'}}]; qs('accountSelector').innerHTML = accounts.map(a => `<option value="${{esc(a.id)}}" ${{a.id === STATE.activeAccount ? 'selected' : ''}}>${{esc(a.label || a.id)}}</option>`).join(''); const mode = accounts.length > 1 ? `${{accounts.length}} accounts available` : 'Single-account mode'; qs('accountStatus').innerHTML = `${{esc(mode)}} · active <code>${{esc(STATE.activeAccount)}}</code><br/><span class="muted">No secrets or session paths are rendered.</span>`; }}
+function setActiveAccount(id) {{ STATE.activeAccount = id || 'default'; refreshAll(); }}
+async function loadDashboard() {{ const data = await getJson('/api/dashboard?' + params(accountParam())); STATE.dashboard = data; STATE.status = data.api_status; renderHome(data); }}
 function renderHome(data) {{ const s = data.store || {{}}; const api = data.api_status || {{}}; const byType = Object.entries(s.by_type || api.by_type || {{}}).map(([k,v]) => `${{k}} ${{v}}`).join(' · ') || 'no type counts'; qs('homeMetrics').innerHTML = metric('API status', api.telegram_status || (api.ok ? 'ok' : 'unavailable'), `ready: ${{api.telegram_ready ?? 'unknown'}}`) + metric('Local messages', s.total_messages ?? api.total_messages ?? '—', byType) + metric('Freshness', s.freshness?.state || 'unknown', s.latest_message_at || 'no latest message') + metric('DB path', data.db_path, 'SQLite read-only') + metric('Sources', s.source_count ?? '—', `${{(data.watched_sources || []).length}} watched/configured`) + metric('Safety', 'read-only', 'no Telegram write controls'); const watched = data.watched_sources?.length ? data.watched_sources : (s.sources || []); qs('watchlist').innerHTML = watched.length ? watched.map(d => sourceCard(d, false)).join('') : '<div class="empty">No configured watchlist found. Showing all known non-DM sources when available.</div>'; qs('recentActivity').innerHTML = (s.recent_activity || []).length ? s.recent_activity.map(messageCard).join('') : '<div class="empty">No recent local activity available.</div>'; }}
 function sourceCard(d, selectable=true) {{ const active = STATE.selectedDialog && String(STATE.selectedDialog.id) === String(d.id); return `<div class="source ${{active ? 'active' : ''}}" ${{selectable ? `onclick="selectDialog('${{esc(d.id)}}')"` : ''}}><strong>${{esc(d.name || d.dialog_name || d.id)}}</strong><div class="meta"><span>${{esc(d.type || d.dialog_type || 'source')}}</span><span><code>${{esc(d.id || d.dialog_id)}}</code></span><span>${{esc(d.message_count ?? '')}} msgs</span><span>${{esc(d.latest_date || '')}}</span></div></div>`; }}
-async function loadDialogs() {{ const scope = qs('sourceScope')?.value || 'all'; const data = await getJson('/api/dialogs?' + params({{scope, query: qs('sourceQuery')?.value || '', sort: qs('sourceSort')?.value || 'recent', limit: 300}})); STATE.dialogs = data.dialogs || []; qs('dialogs').innerHTML = STATE.dialogs.length ? STATE.dialogs.map(d => sourceCard(d)).join('') : '<div class="empty">No sources match the filters.</div>'; }}
+async function loadDialogs() {{ const scope = qs('sourceScope')?.value || 'all'; const data = await getJson('/api/dialogs?' + params({{...accountParam(), scope, query: qs('sourceQuery')?.value || '', sort: qs('sourceSort')?.value || 'recent', limit: 300}})); STATE.dialogs = data.dialogs || []; qs('dialogs').innerHTML = STATE.dialogs.length ? STATE.dialogs.map(d => sourceCard(d)).join('') : '<div class="empty">No sources match the filters.</div>'; }}
 function selectDialog(id) {{ STATE.selectedDialog = STATE.dialogs.find(d => String(d.id) === String(id)) || {{id}}; qs('searchDialog').value = id; qs('threadDialog').value = id; renderSelectedHeader(); loadSelectedMessages(); }}
 function renderSelectedHeader() {{ const d = STATE.selectedDialog || {{}}; qs('selectedChatHeader').className = ''; qs('selectedChatHeader').innerHTML = `<h2>${{esc(d.name || d.id)}}</h2><div class="meta"><span>${{esc(d.type || 'source')}}</span><span><code>${{esc(d.id)}}</code></span><span>${{esc(d.message_count ?? '—')}} local messages</span><span>latest ${{esc(d.latest_date || 'unknown')}}</span></div>`; }}
-async function loadSelectedMessages() {{ if (!STATE.selectedDialog?.id) return; const data = await getJson('/api/recent?' + params({{dialog: STATE.selectedDialog.id, limit: 50}})); STATE.messages = data.messages || []; qs('chatMessages').innerHTML = STATE.messages.length ? STATE.messages.map(messageCard).join('') : '<div class="empty">No local messages found for this source.</div>'; }}
+async function loadSelectedMessages() {{ if (!STATE.selectedDialog?.id) return; const data = await getJson('/api/recent?' + params({{...accountParam(), dialog: STATE.selectedDialog.id, limit: 50}})); STATE.messages = data.messages || []; qs('historyStatus').textContent = `${{data.count || 0}} latest local messages loaded. Use the older controls for earlier SQLite rows.`; renderChatMessages(); }}
+function renderChatMessages() {{ qs('chatMessages').innerHTML = STATE.messages.length ? STATE.messages.map(messageCard).join('') : '<div class="empty">No local messages found for this source. If the DB is sparse, run a bounded Historical sync dry-run first.</div>'; }}
+async function loadOlderMessages() {{ if (!STATE.selectedDialog?.id) return; const last = STATE.messages[STATE.messages.length - 1] || {{}}; const beforeId = qs('olderBeforeId').value || last.msg_id || ''; const data = await getJson('/api/recent?' + params({{...accountParam(), dialog: STATE.selectedDialog.id, before_id: beforeId, before_date: qs('olderBeforeDate').value, limit: qs('olderLimit').value || 50}})); STATE.messages = [...STATE.messages, ...(data.messages || [])]; qs('historyStatus').textContent = `${{data.count || 0}} older local messages loaded before msg ${{data.older_cursor?.before_id || 'date cursor'}}.`; renderChatMessages(); }}
+function copyBackfillPlan() {{ const dialog = STATE.selectedDialog?.id || qs('searchDialog').value || '<dialog_id>'; const beforeId = qs('olderBeforeId').value || (STATE.messages[STATE.messages.length - 1]?.msg_id ?? '<older_than_msg_id>'); const limit = Math.min(Number(qs('olderLimit').value || 100), 1000); const cmd = `uv run python -m tg_sync.cli sync backfill --account ${{STATE.activeAccount || 'default'}} --dialog ${{dialog}} --limit ${{limit}} --before-id ${{beforeId}} --dry-run --json`; navigator.clipboard?.writeText(cmd); qs('historyStatus').textContent = 'Copied bounded Historical sync dry-run command. Run manually before any live backfill.'; }}
 function messageCard(m) {{ const ref = `tg-monitor://dialog/${{m.dialog_id}}/message/${{m.msg_id}}`; return `<div class="message"><div class="meta"><span>${{esc(m.date)}}</span><span>${{esc(m.dialog)}}</span><span>${{esc(m.type)}}</span><span>msg ${{esc(m.msg_id)}}</span>${{m.reply_to_id ? `<span>↩ ${{esc(m.reply_to_id)}}</span>` : ''}}</div><strong>${{esc(m.sender || 'unknown')}}</strong><p>${{esc(m.text || '[metadata only]')}}</p><div class="actions"><button onclick="openThread('${{esc(m.dialog_id)}}','${{esc(m.msg_id)}}')">Open thread</button><button onclick="navigator.clipboard?.writeText('${{esc(ref)}}')">Copy ref</button></div></div>`; }}
 function runSearchForSelected() {{ qs('searchDialog').value = STATE.selectedDialog?.id || ''; qs('searchQuery').focus(); }}
-async function runSearch() {{ const data = await getJson('/api/search?' + params({{q: qs('searchQuery').value, dialog: qs('searchDialog').value, type: qs('searchType').value, sender: qs('searchSender').value, minutes: qs('searchMinutes').value, since: qs('searchSince').value, until: qs('searchUntil').value, limit: qs('searchLimit').value}})); STATE.searchResults = data.messages || []; qs('searchResults').innerHTML = STATE.searchResults.length ? STATE.searchResults.map(messageCard).join('') : '<div class="empty">No local SQLite matches.</div>'; }}
+async function runSearch() {{ const query = qs('searchQuery').value.trim(); if (!query) {{ STATE.searchResults = []; setNotice('searchStatus', 'Enter a query to search stored Telegram messages.', 'warn'); renderSearchResults({{empty_reason:'missing_query'}}); return; }} setNotice('searchStatus', 'Searching local SQLite…'); try {{ const data = await getJson('/api/search?' + params({{...accountParam(), q: query, dialog: qs('searchDialog').value, type: qs('searchType').value, sender: qs('searchSender').value, minutes: qs('searchMinutes').value, since: qs('searchSince').value, until: qs('searchUntil').value, limit: qs('searchLimit').value}})); STATE.searchResults = data.messages || []; setNotice('searchStatus', data.count ? `${{data.count}} local result(s) for “${{esc(data.query)}}”.` : `No local SQLite matches for “${{esc(data.query)}}”. Try a broader query/source or run bounded historical sync.`, data.count ? 'good' : 'warn'); renderSearchResults(data); }} catch (err) {{ STATE.searchResults = []; const p = err.payload || {{}}; setNotice('searchStatus', `${{esc(p.error || err.message)}}${{p.hint ? '<br/>' + esc(p.hint) : ''}}`, 'bad'); renderSearchResults(p); }} }}
+function renderSearchResults(data={{}}) {{ if (STATE.searchResults.length) {{ qs('searchResults').innerHTML = STATE.searchResults.map(messageCard).join(''); return; }} const reason = data.empty_reason || data.error_code || 'no_matches'; const copy = reason === 'missing_query' ? 'Enter a query above to search stored local messages.' : reason === 'db_unavailable' ? 'The configured SQLite DB is unavailable. Check the DB path and runtime monitor.' : 'No matches in the current local DB/filter set. Try removing filters or loading older history.'; qs('searchResults').innerHTML = `<div class="empty">${{esc(copy)}}</div>`; }}
 function searchMarkdown() {{ return (STATE.searchResults || []).map(m => `- \\`${{m.date}}\\` \\`${{m.dialog_id}}/${{m.msg_id}}\\` **${{m.sender || 'unknown'}}**: ${{(m.text || '').replace(/\\n/g,' ')}}`).join('\\n') + '\\n'; }}
 function copySearch(format) {{ const body = format === 'markdown' ? searchMarkdown() : JSON.stringify({{messages: STATE.searchResults}}, null, 2); navigator.clipboard?.writeText(body); }}
 function openThread(dialog, msg) {{ qs('threadDialog').value = dialog; qs('threadMessage').value = msg; showLane('thread'); loadThread(); }}
-async function loadThread() {{ const data = await getJson('/api/thread?' + params({{dialog: qs('threadDialog').value, message_id: qs('threadMessage').value, context: qs('threadContext').value, no_text: qs('metadataOnly').checked ? '1' : ''}})); STATE.thread = data; renderThread(data); }}
+async function loadThread() {{ const data = await getJson('/api/thread?' + params({{...accountParam(), dialog: qs('threadDialog').value, message_id: qs('threadMessage').value, context: qs('threadContext').value, no_text: qs('metadataOnly').checked ? '1' : ''}})); STATE.thread = data; renderThread(data); }}
 function renderThread(t) {{ qs('threadPreview').textContent = JSON.stringify(t, null, 2); const sum = t.export_summary || {{}}; qs('exportSummary').innerHTML = `<div class="meta"><span>source ${{esc(sum.source || t.source)}}</span><span>context ${{esc(sum.context_count ?? '—')}}</span><span>export ${{esc(sum.exported_at || '—')}}</span><span>metadata only ${{esc(sum.metadata_only ?? false)}}</span></div>`; const sections = [['Anchor message',[t.anchor]], ['Parent / reply chain', t.parents || []], ['Direct replies', t.replies || []], ['Nearby context', t.context || []]]; qs('threadBlocks').innerHTML = sections.map(([label, items]) => `<div class="thread-block"><h3>${{label}}</h3>${{items.length ? items.map(messageCard).join('') : '<div class="empty">None</div>'}}</div>`).join(''); }}
-function downloadThread(format) {{ location.href = '/api/export/thread?' + params({{dialog: qs('threadDialog').value, message_id: qs('threadMessage').value, context: qs('threadContext').value, format, no_text: qs('metadataOnly').checked ? '1' : ''}}); }}
+function downloadThread(format) {{ location.href = '/api/export/thread?' + params({{...accountParam(), dialog: qs('threadDialog').value, message_id: qs('threadMessage').value, context: qs('threadContext').value, format, no_text: qs('metadataOnly').checked ? '1' : ''}}); }}
 function copyLocalRef() {{ navigator.clipboard?.writeText(`tg-monitor://dialog/${{qs('threadDialog').value}}/message/${{qs('threadMessage').value}}`); }}
 function copyStatusJson() {{ navigator.clipboard?.writeText(JSON.stringify(STATE.dashboard || STATE.status || {{}}, null, 2)); }}
-function exportRecentContext() {{ showLane('search'); qs('searchQuery').value = ''; qs('searchLimit').value = 100; getJson('/api/recent?limit=100').then(data => {{ STATE.searchResults = data.messages || []; qs('searchResults').innerHTML = STATE.searchResults.map(messageCard).join(''); copySearch('markdown'); }}); }}
+function exportRecentContext() {{ showLane('search'); qs('searchQuery').value = ''; qs('searchLimit').value = 100; getJson('/api/recent?' + params({{...accountParam(), limit:100}})).then(data => {{ STATE.searchResults = data.messages || []; qs('searchResults').innerHTML = STATE.searchResults.map(messageCard).join(''); copySearch('markdown'); }}); }}
 const initial = new URLSearchParams(location.search); if (initial.get('dialog')) {{ qs('searchDialog').value = initial.get('dialog'); qs('threadDialog').value = initial.get('dialog'); }} if (initial.get('q')) qs('searchQuery').value = initial.get('q'); if (initial.get('thread_message')) qs('threadMessage').value = initial.get('thread_message');
 refreshAll().then(() => {{ if (initial.get('q')) {{ showLane('search'); runSearch(); }} if (initial.get('thread_message')) {{ showLane('thread'); loadThread(); }} }}).catch(err => {{ qs('homeMetrics').innerHTML = metric('Workspace error', err.message, 'check DB path/API'); }});
 </script>
@@ -187,10 +201,10 @@ def create_app(api_url: str = DEFAULT_API_URL, db_path: str | Path | None = None
     def api_status(_query: dict[str, str]) -> tuple[int, str, str, dict[str, str]]:
         return _json(_status_payload(app))
 
-    def api_dashboard(_query: dict[str, str]) -> tuple[int, str, str, dict[str, str]]:
+    def api_dashboard(query: dict[str, str]) -> tuple[int, str, str, dict[str, str]]:
         status_payload = _status_payload(app)
         try:
-            store_summary = build_store_summary(app.db_path)
+            store_summary = build_store_summary(app.db_path, account_id=_account_id(query))
             store_error = None
         except DBUnavailable as exc:
             store_summary = {}
@@ -205,19 +219,28 @@ def create_app(api_url: str = DEFAULT_API_URL, db_path: str | Path | None = None
             "store": store_summary,
             "store_error": store_error,
             "watched_sources": watched_sources,
+            "accounts": _accounts_payload(query),
             "read_only": True,
         }
         return _json(payload)
 
+    def api_accounts(query: dict[str, str]) -> tuple[int, str, str, dict[str, str]]:
+        return _json(_accounts_payload(query))
+
     def api_dialogs(query: dict[str, str]) -> tuple[int, str, str, dict[str, str]]:
         scope = query.get("scope") or "all"
         dialog_type = query.get("type") or (scope if scope in {"group", "channel", "dm"} else None)
-        dialogs = ReadOnlyStore(app.db_path).list_dialogs(
-            dialog_type=dialog_type,
-            query=query.get("query") or None,
-            min_count=int(query.get("min_count", "0") or 0),
-            limit=clamp_limit(query.get("limit"), default=300),
-        )
+        try:
+            dialogs = _store(app, query).list_dialogs(
+                dialog_type=dialog_type,
+                query=query.get("query") or None,
+                min_count=int(query.get("min_count", "0") or 0),
+                limit=clamp_limit(query.get("limit"), default=300),
+            )
+        except ValueError as exc:
+            return _error("bad_request", str(exc), status=400, hint="Adjust numeric filters and retry.")
+        except DBUnavailable as exc:
+            return _error("db_unavailable", str(exc), status=503, hint="Check --db/TG_MONITOR_DB and that monitor.db exists locally.")
         if scope == "watched":
             watched_ids = {str(source.get("id") or source.get("dialog_id")) for source in _watched_sources(_status_payload(app), {"sources": dialogs})}
             dialogs = [dialog for dialog in dialogs if str(dialog["id"]) in watched_ids]
@@ -231,42 +254,57 @@ def create_app(api_url: str = DEFAULT_API_URL, db_path: str | Path | None = None
         return _json({"ok": True, "source": "sqlite-readonly", "count": len(dialogs), "dialogs": dialogs})
 
     def api_recent(query: dict[str, str]) -> tuple[int, str, str, dict[str, str]]:
-        messages = ReadOnlyStore(app.db_path).recent_messages(
-            minutes=int(query.get("minutes", "100000000") or 100000000),
-            dialog_id=query.get("dialog") or None,
-            dialog_type=query.get("type") or None,
-            sender=query.get("sender") or None,
-            limit=clamp_limit(query.get("limit"), default=25),
-            no_text=_truthy(query.get("no_text")),
-        )
-        return _json({"ok": True, "source": "sqlite-readonly", "count": len(messages), "messages": messages})
+        try:
+            before_id = int(query["before_id"]) if query.get("before_id") else None
+            messages = _store(app, query).recent_messages(
+                minutes=int(query.get("minutes", "100000000") or 100000000) if not (before_id or query.get("before_date")) else None,
+                dialog_id=query.get("dialog") or None,
+                dialog_type=query.get("type") or None,
+                sender=query.get("sender") or None,
+                limit=clamp_limit(query.get("limit"), default=25),
+                no_text=_truthy(query.get("no_text")),
+                before_id=before_id,
+                before_date=query.get("before_date") or None,
+            )
+        except ValueError as exc:
+            return _error("bad_request", str(exc), status=400, hint="Use positive numeric limits/message ids and ISO dates.")
+        except DBUnavailable as exc:
+            return _error("db_unavailable", str(exc), status=503, hint="Check --db/TG_MONITOR_DB and that monitor.db exists locally.")
+        return _json({"ok": True, "source": "sqlite-readonly", "count": len(messages), "messages": messages, "older_cursor": {"before_id": before_id, "before_date": query.get("before_date") or None}, "limit": clamp_limit(query.get("limit"), default=25)})
 
     def api_search(query: dict[str, str]) -> tuple[int, str, str, dict[str, str]]:
-        q = query.get("q", "")
+        q = (query.get("q") or "").strip()
         if not q:
-            return _json({"ok": True, "source": "sqlite-readonly", "count": 0, "messages": []})
-        since = query.get("since") or None
-        if not since and query.get("minutes"):
-            minutes = int(query.get("minutes", "0") or 0)
-            since = (datetime.now(timezone.utc) - timedelta(minutes=minutes)).isoformat()
-        messages = ReadOnlyStore(app.db_path).search_messages(
-            q,
-            dialog_id=query.get("dialog") or None,
-            dialog_type=query.get("type") or None,
-            sender=query.get("sender") or None,
-            since=since,
-            until=query.get("until") or None,
-            limit=clamp_limit(query.get("limit"), default=25),
-            no_text=_truthy(query.get("no_text")),
-        )
-        return _json({"ok": True, "source": "sqlite-readonly", "query": q, "count": len(messages), "messages": messages})
+            return _error("missing_query", "Search query is required.", status=400, hint="Enter a keyword or phrase, then search the local SQLite DB.", extra={"empty_reason": "missing_query", "messages": []})
+        try:
+            since = query.get("since") or None
+            if not since and query.get("minutes"):
+                minutes = int(query.get("minutes", "0") or 0)
+                if minutes < 1:
+                    raise ValueError("minutes must be >= 1")
+                since = (datetime.now(timezone.utc) - timedelta(minutes=minutes)).isoformat()
+            messages = _store(app, query).search_messages(
+                q,
+                dialog_id=query.get("dialog") or None,
+                dialog_type=query.get("type") or None,
+                sender=query.get("sender") or None,
+                since=since,
+                until=query.get("until") or None,
+                limit=clamp_limit(query.get("limit"), default=25),
+                no_text=_truthy(query.get("no_text")),
+            )
+        except ValueError as exc:
+            return _error("bad_request", str(exc), status=400, hint="Use positive numeric filters and retry.")
+        except DBUnavailable as exc:
+            return _error("db_unavailable", str(exc), status=503, hint="Check --db/TG_MONITOR_DB and that monitor.db exists locally.")
+        return _json({"ok": True, "source": "sqlite-readonly", "query": q, "count": len(messages), "messages": messages, "empty_reason": None if messages else "no_matches"})
 
     def api_thread(query: dict[str, str]) -> tuple[int, str, str, dict[str, str]]:
-        thread = _load_thread(app.db_path, query)
+        thread = _load_thread(app.db_path, query, account_id=_account_id(query))
         return _json({"ok": True, **thread})
 
     def api_export_thread(query: dict[str, str]) -> tuple[int, str, str, dict[str, str]]:
-        thread = _load_thread(app.db_path, query)
+        thread = _load_thread(app.db_path, query, account_id=_account_id(query))
         if query.get("format") == "json":
             return 200, "application/json", json.dumps(thread, ensure_ascii=False, indent=2) + "\n", {"Content-Disposition": "attachment; filename=tg-thread.json"}
         return 200, "text/markdown; charset=utf-8", thread_to_markdown(thread), {"Content-Disposition": "attachment; filename=tg-thread.md"}
@@ -274,6 +312,7 @@ def create_app(api_url: str = DEFAULT_API_URL, db_path: str | Path | None = None
     app.router.add_get("/", index)
     app.router.add_get("/api/status", api_status)
     app.router.add_get("/api/dashboard", api_dashboard)
+    app.router.add_get("/api/accounts", api_accounts)
     app.router.add_get("/api/dialogs", api_dialogs)
     app.router.add_get("/api/recent", api_recent)
     app.router.add_get("/api/search", api_search)
@@ -282,13 +321,16 @@ def create_app(api_url: str = DEFAULT_API_URL, db_path: str | Path | None = None
     return app
 
 
-def build_store_summary(db_path: str | Path) -> dict[str, Any]:
+def build_store_summary(db_path: str | Path, account_id: str | None = None) -> dict[str, Any]:
     """Return home-dashboard facts from the local SQLite DB only."""
-    store = ReadOnlyStore(db_path)
+    store = ReadOnlyStore(db_path, account_id=account_id)
     with store.connect() as conn:
-        total_messages = int(conn.execute("SELECT COUNT(*) FROM messages").fetchone()[0])
-        type_rows = conn.execute("SELECT dialog_type, COUNT(*) FROM messages GROUP BY dialog_type").fetchall()
-        latest_message_at = conn.execute("SELECT MAX(date) FROM messages").fetchone()[0]
+        has_account_id = store._has_account_id(conn)
+        account_sql, account_params = store._account_where(has_account_id)
+        where_sql = f" WHERE {account_sql}" if account_sql else ""
+        total_messages = int(conn.execute(f"SELECT COUNT(*) FROM messages{where_sql}", account_params).fetchone()[0])
+        type_rows = conn.execute(f"SELECT dialog_type, COUNT(*) FROM messages{where_sql} GROUP BY dialog_type", account_params).fetchall()
+        latest_message_at = conn.execute(f"SELECT MAX(date) FROM messages{where_sql}", account_params).fetchone()[0]
     sources = store.list_dialogs(limit=1000)
     recent_activity = store.recent_messages(minutes=100000000, limit=8)
     return {
@@ -330,8 +372,52 @@ def _watched_sources(status_payload: dict[str, Any], store_summary: dict[str, An
     return [source for source in store_summary.get("sources", []) if source.get("type") != "dm"][:20]
 
 
-def _load_thread(db_path: str | Path, query: dict[str, str]) -> dict[str, Any]:
-    thread = ReadOnlyStore(db_path).get_thread(query["dialog"], int(query["message_id"]), context=int(query.get("context", "10") or 10), max_depth=int(query.get("max_depth", "20") or 20))
+def _account_id(query: dict[str, str]) -> str | None:
+    account = (query.get("account") or "").strip()
+    return account or None
+
+
+def _store(app: LocalUiApp, query: dict[str, str]) -> ReadOnlyStore:
+    return ReadOnlyStore(app.db_path, account_id=_account_id(query))
+
+
+def _accounts_payload(query: dict[str, str]) -> dict[str, Any]:
+    requested = _account_id(query)
+    try:
+        accounts = AccountRegistry().list_accounts()
+    except Exception:
+        accounts = []
+    if not accounts:
+        safe_accounts = [{"id": "default", "label": "Default account", "active": True}]
+        active = "default"
+        mode = "single"
+    else:
+        active = requested or next((account.id for account in accounts if account.active), accounts[0].id)
+        safe_accounts = [
+            {"id": account.id, "label": account.label, "active": account.id == active}
+            for account in accounts
+        ]
+        mode = "multi" if len(safe_accounts) > 1 else "single"
+    return {
+        "ok": True,
+        "mode": mode,
+        "active_account": active,
+        "accounts": safe_accounts,
+        "read_only": True,
+        "secrets_rendered": False,
+        "session_paths_rendered": False,
+    }
+
+
+def _error(error_code: str, error: str, *, status: int, hint: str, extra: dict[str, Any] | None = None) -> tuple[int, str, str, dict[str, str]]:
+    payload = {"ok": False, "error_code": error_code, "error": error, "hint": hint}
+    if extra:
+        payload.update(extra)
+    return _json(payload, status=status)
+
+
+def _load_thread(db_path: str | Path, query: dict[str, str], account_id: str | None = None) -> dict[str, Any]:
+    thread = ReadOnlyStore(db_path, account_id=account_id).get_thread(query["dialog"], int(query["message_id"]), context=int(query.get("context", "10") or 10), max_depth=int(query.get("max_depth", "20") or 20))
     metadata_only = _truthy(query.get("no_text")) or _truthy(query.get("metadata_only"))
     if metadata_only:
         _redact_thread(thread)
@@ -424,13 +510,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--db", default=None)
     parser.add_argument("--host", default=DEFAULT_UI_HOST)
     parser.add_argument("--port", type=int, default=DEFAULT_UI_PORT)
+    parser.add_argument("--allow-internal-bind", action="store_true", help="Explicitly allow binding non-localhost hosts for internal/Tailscale read-only review")
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    if args.host not in {"127.0.0.1", "localhost"}:
-        print("Refusing to bind non-localhost host in read-only workspace", file=sys.stderr)
+    if args.host not in {"127.0.0.1", "localhost"} and not args.allow_internal_bind:
+        print("Refusing non-localhost bind without --allow-internal-bind. This keeps the read-only workspace localhost-safe by default.", file=sys.stderr)
         return 2
     serve(create_app(args.api_url, args.db), args.host, args.port)
     return 0

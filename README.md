@@ -163,7 +163,19 @@ uv run python -m tg_sync.ui \
 # Open http://127.0.0.1:8787
 ```
 
-The UI binds to `127.0.0.1` by default and refuses non-localhost hosts. Open `http://127.0.0.1:8787` after starting it.
+The UI binds to `127.0.0.1` by default. For internal review over Tailscale, opt in explicitly to a non-localhost bind:
+
+```bash
+uv run python -m tg_sync.ui \
+  --api-url http://127.0.0.1:8765 \
+  --db /Users/giga/.openclaw/workspace/tg-monitor/monitor.db \
+  --host 0.0.0.0 \
+  --port 8788 \
+  --allow-internal-bind
+# Share http://100.113.216.73:8788/ for review
+```
+
+The internal-bind mode is still read-only: no send/reply/delete routes are registered, no Telegram write calls are made, and the UI only renders safe account IDs/labels rather than API secrets or session paths.
 
 Workspace lanes:
 
