@@ -22,6 +22,7 @@ from telethon.tl.types import (
 from aiohttp import web
 
 import signal_leads
+from tg_sync.accounts import DEFAULT_ACCOUNT_ID, resolve_runtime_account
 
 load_dotenv()
 
@@ -47,14 +48,24 @@ _telegram_ready: bool = False
 _telegram_status: str = "starting"
 _telegram_error: str | None = None
 
-# ── DB ────────────────────────────────────────────────────────────────────────
-DB_PATH = "monitor.db"
+# ── Account / DB ──────────────────────────────────────────────────────────────
+ACTIVE_ACCOUNT = resolve_runtime_account()
+ACCOUNT_ID = ACTIVE_ACCOUNT.id or DEFAULT_ACCOUNT_ID
+DB_PATH = str(ACTIVE_ACCOUNT.db_path)
 
 def init_db():
     conn = sqlite3.connect(DB_PATH)
+    _ensure_account_schema(conn)
+    conn.commit()
+    conn.close()
+
+
+def _ensure_account_schema(conn: sqlite3.Connection):
+    """Create/migrate account-aware tables while preserving default rows."""
     conn.execute("""
         CREATE TABLE IF NOT EXISTS messages (
             id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            account_id    TEXT DEFAULT 'default',
             dialog_id     TEXT,
             dialog_name   TEXT,
             dialog_type   TEXT,
@@ -64,22 +75,64 @@ def init_db():
             text          TEXT,
             date          TEXT,
             reply_to_id   INTEGER,
-            UNIQUE(dialog_id, msg_id)
+            UNIQUE(account_id, dialog_id, msg_id)
         )
     """)
     conn.execute("""
         CREATE TABLE IF NOT EXISTS last_seen (
-            dialog_id  TEXT PRIMARY KEY,
-            message_id INTEGER DEFAULT 0
+            account_id TEXT DEFAULT 'default',
+            dialog_id  TEXT,
+            message_id INTEGER DEFAULT 0,
+            PRIMARY KEY(account_id, dialog_id)
         )
     """)
-    conn.commit()
-    conn.close()
+    msg_cols = {row[1] for row in conn.execute("PRAGMA table_info(messages)").fetchall()}
+    seen_cols = {row[1] for row in conn.execute("PRAGMA table_info(last_seen)").fetchall()}
+    if "account_id" not in msg_cols:
+        conn.execute("ALTER TABLE messages RENAME TO messages_legacy")
+        conn.execute("""
+            CREATE TABLE messages (
+                id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                account_id    TEXT DEFAULT 'default',
+                dialog_id     TEXT,
+                dialog_name   TEXT,
+                dialog_type   TEXT,
+                msg_id        INTEGER,
+                sender_id     INTEGER,
+                sender_name   TEXT,
+                text          TEXT,
+                date          TEXT,
+                reply_to_id   INTEGER,
+                UNIQUE(account_id, dialog_id, msg_id)
+            )
+        """)
+        conn.execute("""
+            INSERT OR IGNORE INTO messages
+                (id, account_id, dialog_id, dialog_name, dialog_type, msg_id, sender_id, sender_name, text, date, reply_to_id)
+            SELECT id, 'default', dialog_id, dialog_name, dialog_type, msg_id, sender_id, sender_name, text, date, reply_to_id
+            FROM messages_legacy
+        """)
+        conn.execute("DROP TABLE messages_legacy")
+    if "account_id" not in seen_cols:
+        conn.execute("ALTER TABLE last_seen RENAME TO last_seen_legacy")
+        conn.execute("""
+            CREATE TABLE last_seen (
+                account_id TEXT DEFAULT 'default',
+                dialog_id  TEXT,
+                message_id INTEGER DEFAULT 0,
+                PRIMARY KEY(account_id, dialog_id)
+            )
+        """)
+        conn.execute("""
+            INSERT OR REPLACE INTO last_seen (account_id, dialog_id, message_id)
+            SELECT 'default', dialog_id, message_id FROM last_seen_legacy
+        """)
+        conn.execute("DROP TABLE last_seen_legacy")
 
 def get_last_seen(dialog_id: str) -> int:
     conn = sqlite3.connect(DB_PATH)
     row = conn.execute(
-        "SELECT message_id FROM last_seen WHERE dialog_id=?", (dialog_id,)
+        "SELECT message_id FROM last_seen WHERE account_id=? AND dialog_id=?", (ACCOUNT_ID, dialog_id)
     ).fetchone()
     conn.close()
     return row[0] if row else 0
@@ -87,8 +140,8 @@ def get_last_seen(dialog_id: str) -> int:
 def set_last_seen(dialog_id: str, message_id: int):
     conn = sqlite3.connect(DB_PATH)
     conn.execute(
-        "INSERT OR REPLACE INTO last_seen (dialog_id, message_id) VALUES (?,?)",
-        (dialog_id, message_id),
+        "INSERT OR REPLACE INTO last_seen (account_id, dialog_id, message_id) VALUES (?,?,?)",
+        (ACCOUNT_ID, dialog_id, message_id),
     )
     conn.commit()
     conn.close()
@@ -99,11 +152,11 @@ def save_messages(dialog_id: str, dialog_name: str, dialog_type: str, msgs: list
         try:
             conn.execute("""
                 INSERT OR IGNORE INTO messages
-                    (dialog_id, dialog_name, dialog_type,
+                    (account_id, dialog_id, dialog_name, dialog_type,
                      msg_id, sender_id, sender_name, text, date, reply_to_id)
-                VALUES (?,?,?,?,?,?,?,?,?)
+                VALUES (?,?,?,?,?,?,?,?,?,?)
             """, (
-                dialog_id, dialog_name, dialog_type,
+                ACCOUNT_ID, dialog_id, dialog_name, dialog_type,
                 m["id"], m["sender_id"], m["sender"],
                 m["text"], m["date"], m.get("reply_to_id"),
             ))
@@ -117,9 +170,9 @@ def fetch_messages_db(minutes: int = 60, dialog_id: str = None,
     since = (datetime.now(timezone.utc) - timedelta(minutes=minutes)).isoformat()
     conn  = sqlite3.connect(DB_PATH)
     query = """SELECT dialog_id, dialog_name, dialog_type,
-                      msg_id, sender_id, sender_name, text, date, reply_to_id
-               FROM messages WHERE date >= ?"""
-    params = [since]
+                      msg_id, sender_id, sender_name, text, date, reply_to_id, account_id
+               FROM messages WHERE account_id = ? AND date >= ?"""
+    params = [ACCOUNT_ID, since]
     if dialog_id:
         query += " AND dialog_id = ?"
         params.append(dialog_id)
@@ -141,12 +194,13 @@ def fetch_messages_db(minutes: int = 60, dialog_id: str = None,
             "text":        r[6],
             "date":        r[7],
             "reply_to_id": r[8],
+            "account_id":   r[9],
         }
         for r in rows
     ]
 
 # ── Telethon ──────────────────────────────────────────────────────────────────
-client = TelegramClient("user_session", API_ID, API_HASH)
+client = TelegramClient(ACTIVE_ACCOUNT.session_path, API_ID, API_HASH)
 
 def _dialog_type(entity) -> str:
     if isinstance(entity, Channel):
@@ -284,8 +338,8 @@ def write_snapshot():
         conn = sqlite3.connect(DB_PATH)
         rows = conn.execute(
             "SELECT msg_id, dialog_id, dialog_name, dialog_type, sender_name, text, date, reply_to_id "
-            "FROM messages WHERE dialog_id=? AND date>=? ORDER BY date ASC LIMIT ?",
-            (SNAPSHOT_DIALOG, cutoff, SNAPSHOT_LIMIT)
+            "FROM messages WHERE account_id=? AND dialog_id=? AND date>=? ORDER BY date ASC LIMIT ?",
+            (ACCOUNT_ID, SNAPSHOT_DIALOG, cutoff, SNAPSHOT_LIMIT)
         ).fetchall()
         conn.close()
 
@@ -524,7 +578,8 @@ async def api_lead_candidates(request):
 async def api_dialogs(request):
     conn  = sqlite3.connect(DB_PATH)
     rows  = conn.execute(
-        "SELECT DISTINCT dialog_id, dialog_name, dialog_type FROM messages"
+        "SELECT DISTINCT dialog_id, dialog_name, dialog_type FROM messages WHERE account_id=?",
+        (ACCOUNT_ID,)
     ).fetchall()
     conn.close()
     return web.json_response([
@@ -535,7 +590,8 @@ async def api_dialogs(request):
 async def api_groups(request):
     conn  = sqlite3.connect(DB_PATH)
     rows  = conn.execute(
-        "SELECT DISTINCT dialog_id, dialog_name FROM messages WHERE dialog_type IN ('group','channel')"
+        "SELECT DISTINCT dialog_id, dialog_name FROM messages WHERE account_id=? AND dialog_type IN ('group','channel')",
+        (ACCOUNT_ID,)
     ).fetchall()
     conn.close()
     return web.json_response([{"id": r[0], "name": r[1]} for r in rows])
@@ -573,9 +629,10 @@ def build_status_payload() -> dict:
     """Return the additive health/status payload shared by /, /health, and /status."""
     try:
         conn = sqlite3.connect(DB_PATH)
-        total = conn.execute("SELECT COUNT(*) FROM messages").fetchone()[0]
+        total = conn.execute("SELECT COUNT(*) FROM messages WHERE account_id=?", (ACCOUNT_ID,)).fetchone()[0]
         by_type = conn.execute(
-            "SELECT dialog_type, COUNT(*) FROM messages GROUP BY dialog_type"
+            "SELECT dialog_type, COUNT(*) FROM messages WHERE account_id=? GROUP BY dialog_type",
+            (ACCOUNT_ID,)
         ).fetchall()
         conn.close()
     except Exception as e:
@@ -598,6 +655,8 @@ def build_status_payload() -> dict:
         "total_messages": total,
         "by_type": {r[0]: r[1] for r in by_type},
         "source_watchlist": source_watchlist,
+        "account_id": ACCOUNT_ID,
+        "db_path": DB_PATH,
     }
     if _telegram_error:
         payload["error"] = _telegram_error

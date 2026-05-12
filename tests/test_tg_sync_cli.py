@@ -1,5 +1,6 @@
 import io
 import json
+import os
 import sqlite3
 import tempfile
 import unittest
@@ -76,6 +77,69 @@ class TgSyncCliTests(unittest.TestCase):
         self.assertEqual(payload["api_url"], "http://127.0.0.1:9")
         self.assertIn("error", payload)
 
+class TgSyncCliAccountAndBackfillTests(unittest.TestCase):
+    def setUp(self):
+        self.tmpdir = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmpdir.cleanup)
+        self.config_path = Path(self.tmpdir.name) / "accounts.json"
+        self.db_path = Path(self.tmpdir.name) / "default.db"
+        conn = sqlite3.connect(self.db_path)
+        conn.execute(SCHEMA)
+        conn.commit()
+        conn.close()
+        self.old_env = os.environ.copy()
+        os.environ["TG_SYNC_ACCOUNTS_CONFIG"] = str(self.config_path)
+
+    def tearDown(self):
+        os.environ.clear()
+        os.environ.update(self.old_env)
+
+    def run_cli(self, argv):
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+        with redirect_stdout(stdout), redirect_stderr(stderr):
+            code = cli.main(argv)
+        return code, stdout.getvalue(), stderr.getvalue()
+
+    def test_accounts_add_list_switch_status_json(self):
+        code, out, err = self.run_cli(["accounts", "add", "ops", "--session", "sessions/ops", "--db", str(self.db_path), "--json"])
+        self.assertEqual(code, 0, err)
+        self.assertEqual(json.loads(out)["account"]["id"], "ops")
+
+        code, out, err = self.run_cli(["accounts", "switch", "ops", "--json"])
+        self.assertEqual(code, 0, err)
+        self.assertEqual(json.loads(out)["active_account"], "ops")
+
+        code, out, err = self.run_cli(["accounts", "status", "--json"])
+        self.assertEqual(code, 0, err)
+        payload = json.loads(out)
+        self.assertEqual(payload["active_account"], "ops")
+        self.assertEqual(payload["account"]["session_path"], "sessions/ops")
+
+        code, out, err = self.run_cli(["accounts", "list", "--json"])
+        self.assertEqual(code, 0, err)
+        self.assertIn("ops", [a["id"] for a in json.loads(out)["accounts"]])
+
+    def test_sync_backfill_dry_run_is_bounded_and_scriptable(self):
+        self.run_cli(["accounts", "add", "ops", "--session", "sessions/ops", "--db", str(self.db_path)])
+
+        code, out, err = self.run_cli(["sync", "backfill", "--account", "ops", "--dialog", "-1001", "--limit", "25", "--before-id", "900", "--dry-run", "--json"])
+
+        self.assertEqual(code, 0, err)
+        payload = json.loads(out)
+        self.assertTrue(payload["dry_run"])
+        self.assertEqual(payload["account"]["id"], "ops")
+        self.assertEqual(payload["request"]["limit"], 25)
+        self.assertEqual(payload["request"]["before_id"], 900)
+        self.assertEqual(payload["telegram_writes"], "forbidden")
+
+    def test_sync_backfill_rejects_unbounded_or_malformed_requests(self):
+        code, out, err = self.run_cli(["sync", "backfill", "--dialog", "-1001", "--limit", "5001", "--dry-run", "--json"])
+
+        self.assertEqual(code, cli.EXIT_BAD_ARGS)
+        payload = json.loads(out)
+        self.assertFalse(payload["ok"])
+        self.assertIn("limit", payload["error"])
 
 if __name__ == "__main__":
     unittest.main()
