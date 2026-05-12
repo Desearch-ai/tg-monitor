@@ -32,9 +32,17 @@ class ReadOnlyStore:
         try:
             conn = sqlite3.connect(_readonly_uri(self.db_path), uri=True)
             conn.row_factory = sqlite3.Row
+            self._validate_messages_schema(conn)
             return conn
         except sqlite3.Error as exc:
-            raise DBUnavailable(str(exc)) from exc
+            raise DBUnavailable(f"DB unavailable: {exc}") from exc
+
+    def _validate_messages_schema(self, conn: sqlite3.Connection) -> None:
+        columns = {row[1] for row in conn.execute("PRAGMA table_info(messages)").fetchall()}
+        required = {"dialog_id", "dialog_name", "dialog_type", "msg_id", "sender_name", "text", "date", "reply_to_id"}
+        missing = sorted(required - columns)
+        if missing:
+            raise DBUnavailable(f"DB schema missing messages columns: {', '.join(missing)}")
 
     def list_dialogs(
         self,
@@ -94,6 +102,8 @@ class ReadOnlyStore:
         sender: str | None = None,
         limit: int = 50,
         no_text: bool = False,
+        before_id: int | None = None,
+        before_date: str | None = None,
     ) -> list[dict[str, Any]]:
         where: list[str] = []
         params: list[Any] = []
@@ -110,6 +120,12 @@ class ReadOnlyStore:
         if sender:
             where.append("sender_name LIKE ? COLLATE NOCASE")
             params.append(f"%{sender}%")
+        if before_id is not None:
+            where.append("msg_id < ?")
+            params.append(int(before_id))
+        if before_date:
+            where.append("date < ?")
+            params.append(before_date)
         return self._query_messages(where, params, limit, no_text=no_text)
 
     def search_messages(

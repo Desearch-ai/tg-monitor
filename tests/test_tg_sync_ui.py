@@ -164,5 +164,127 @@ class TgSyncUiWatchlistTests(unittest.TestCase):
         self.assertEqual(payload["dialogs"][1]["message_count"], 1)
 
 
+class TgSyncUiSearchRegressionTests(unittest.TestCase):
+    def _db_with_messages(self, tmp):
+        db_path = f"{tmp}/monitor.db"
+        conn = sqlite3.connect(db_path)
+        conn.execute(
+            """
+            CREATE TABLE messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                account_id TEXT DEFAULT 'default',
+                dialog_id TEXT,
+                dialog_name TEXT,
+                dialog_type TEXT,
+                msg_id INTEGER,
+                sender_id INTEGER,
+                sender_name TEXT,
+                text TEXT,
+                date TEXT,
+                reply_to_id INTEGER,
+                UNIQUE(account_id, dialog_id, msg_id)
+            )
+            """
+        )
+        conn.executemany(
+            """
+            INSERT INTO messages
+                (account_id, dialog_id, dialog_name, dialog_type, msg_id, sender_id, sender_name, text, date, reply_to_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            [
+                ("default", "-1001", "Nerds", "group", 100, 1, "Alice", "Bittensor search result", "2026-05-09T10:00:00+00:00", None),
+                ("ops", "-1001", "Nerds", "group", 99, 2, "Bob", "Older desearch context", "2026-05-09T09:00:00+00:00", None),
+            ],
+        )
+        conn.commit()
+        conn.close()
+        return db_path
+
+    def test_search_api_returns_real_sqlite_results_with_actionable_payload(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            app = ui.create_app(api_url="http://127.0.0.1:8765", db_path=self._db_with_messages(tmp))
+            route = app.router.match("/api/search")
+
+            status, _content_type, body, _headers = route.handler({"q": "bittensor", "limit": "10", "account": "default"})
+
+        payload = json.loads(body)
+        self.assertEqual(status, 200)
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["count"], 1)
+        self.assertEqual(payload["messages"][0]["msg_id"], 100)
+        self.assertEqual(payload["empty_reason"], None)
+
+    def test_search_api_reports_blank_query_bad_limit_and_missing_db_instead_of_silent_blank(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            app = ui.create_app(api_url="http://127.0.0.1:8765", db_path=f"{tmp}/missing.db")
+            route = app.router.match("/api/search")
+
+            status, _content_type, body, _headers = route.handler({"q": ""})
+            self.assertEqual(status, 400)
+            payload = json.loads(body)
+            self.assertFalse(payload["ok"])
+            self.assertEqual(payload["error_code"], "missing_query")
+            self.assertIn("Enter", payload["hint"])
+
+            status, _content_type, body, _headers = route.handler({"q": "bittensor", "limit": "0"})
+            self.assertEqual(status, 400)
+            self.assertEqual(json.loads(body)["error_code"], "bad_request")
+
+            status, _content_type, body, _headers = route.handler({"q": "bittensor"})
+            self.assertEqual(status, 503)
+            self.assertEqual(json.loads(body)["error_code"], "db_unavailable")
+
+    def test_search_api_reports_bad_sqlite_schema_instead_of_500_blank(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            db_path = f"{tmp}/bad.db"
+            conn = sqlite3.connect(db_path)
+            conn.execute("CREATE TABLE unrelated (id INTEGER PRIMARY KEY)")
+            conn.commit()
+            conn.close()
+
+            app = ui.create_app(api_url="http://127.0.0.1:8765", db_path=db_path)
+            route = app.router.match("/api/search")
+
+            status, _content_type, body, _headers = route.handler({"q": "bittensor"})
+
+        payload = json.loads(body)
+        self.assertEqual(status, 503)
+        self.assertFalse(payload["ok"])
+        self.assertEqual(payload["error_code"], "db_unavailable")
+        self.assertIn("DB", payload["hint"])
+
+    def test_recent_api_supports_bounded_older_message_cursors(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            app = ui.create_app(api_url="http://127.0.0.1:8765", db_path=self._db_with_messages(tmp))
+            route = app.router.match("/api/recent")
+
+            status, _content_type, body, _headers = route.handler({"dialog": "-1001", "before_id": "100", "limit": "5", "account": "default"})
+
+        payload = json.loads(body)
+        self.assertEqual(status, 200)
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["older_cursor"]["before_id"], 100)
+        self.assertEqual(payload["messages"], [])
+
+    def test_index_html_contains_search_states_older_history_account_and_internal_bind_copy(self):
+        html = ui.render_index_html(api_url="http://127.0.0.1:8765", db_path="monitor.db")
+
+        self.assertIn('id="searchStatus"', html)
+        self.assertIn("renderSearchResults", html)
+        self.assertIn("Load older local messages", html)
+        self.assertIn("Historical sync", html)
+        self.assertIn('id="accountSelector"', html)
+        self.assertIn("Single-account mode", html)
+        self.assertIn("--allow-internal-bind", html)
+        self.assertNotIn("/api/send", html)
+
+    def test_parser_requires_explicit_internal_bind_opt_in_for_tailscale_hosts(self):
+        self.assertEqual(ui.main(["--host", "0.0.0.0", "--port", "0"]), 2)
+        parser = ui.build_parser()
+        args = parser.parse_args(["--host", "0.0.0.0", "--allow-internal-bind"])
+        self.assertTrue(args.allow_internal_bind)
+
+
 if __name__ == "__main__":
     unittest.main()
